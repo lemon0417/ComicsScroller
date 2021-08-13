@@ -23,7 +23,7 @@ type State = {
   subscribe: Array<*>,
   history: Array<*>,
   dm5: {
-    baseURL: 'http://www.dm5.com',
+    baseURL: 'https://www.dm5.com',
   },
   sf: {
     baseURL: 'http://comic.sfacg.com',
@@ -38,7 +38,7 @@ const initialState = {
   subscribe: [],
   history: [],
   dm5: {
-    baseURL: 'http://www.dm5.com',
+    baseURL: 'https://www.dm5.com',
   },
   sf: {
     baseURL: 'http://comic.sfacg.com',

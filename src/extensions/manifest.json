@@ -1,6 +1,6 @@
 {
   "name": "Comics Scroller",
-  "version": "4.0.28",
+  "version": "4.0.29",
   "manifest_version": 2,
   "description": "一個支援動漫屋、無限動漫、sfacg，給你更好的漫畫閱讀體驗的 chrome extension ",
   "icons": {
@@ -35,6 +35,8 @@
     "http://*.sfacg.com/*",
     "http://*.dm5.com/*",
     "http://*.cdndm5.com/*",
+    "https://*.dm5.com/*",
+    "https://*.cdndm5.com/*",
     "http://localhost:8000/*"
   ],
   "content_security_policy": "img-src 'self' data: * ; script-src 'self' 'unsafe-eval' https://*.google-analytics.com https://ajax.googleapis.com http://localhost:8000; object-src 'self' ; ",

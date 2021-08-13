@@ -37,7 +37,7 @@ function getInfor(site) {
     case 'dm5':
       return {
         site,
-        baseURL: 'http://www.dm5.com',
+        baseURL: 'https://www.dm5.com',
       };
     case 'sf':
       return {
