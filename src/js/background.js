@@ -61,13 +61,13 @@ chrome.browserAction.setBadgeBackgroundColor({ color: '#F00' });
 
 chrome.webRequest.onBeforeSendHeaders.addListener(
   dm5RefererHandler,
-  { urls: ['https://www.dm5.com/m*/chapterfun*', 'https://*.cdndm5.com/*'] },
+  { urls: ['https://www.dm5.com/m*/chapterfun*', 'https://*.cdndm5.com/*', 'https://*.cdnmanhua.net/*'] },
   ['requestHeaders', 'blocking', 'extraHeaders'],
 );
 
 chrome.webRequest.onBeforeSendHeaders.addListener(
   dm5CookieHandler,
-  { urls: ['https://www.dm5.com/m*/'] },
+  { urls: ['https://www.dm5.com/m*/', 'https://*.cdnmanhua.net/*'] },
   ['requestHeaders', 'blocking', 'extraHeaders'],
 );
 
