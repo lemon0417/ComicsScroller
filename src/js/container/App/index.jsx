@@ -8,8 +8,6 @@ import MenuIcon from 'imgs/menu.svg';
 import NextIcon from 'imgs/circle-right.svg';
 import PrevIcon from 'imgs/circle-left.svg';
 import TagIcon from 'imgs/tag.svg';
-import FbIcon from 'imgs/facebook.svg';
-import GithubIcon from 'imgs/github.svg';
 import IconButton from '../../component/IconButton';
 import cn from './App.css';
 import ImgContainer from '../ImgContainer';
@@ -166,7 +164,7 @@ class App extends Component {
             <a target="_blank" href={this.props.chapterURL}>{`${
               this.props.title
             }`}</a>
-            <span>></span>
+            <span>&gt;</span>
             <span>
               {this.props.chapterList.length > 0
                 ? this.props.chapterTitle
@@ -174,16 +172,6 @@ class App extends Component {
             </span>
           </span>
           <span className={cn.rigthtContainer}>
-            <IconButton>
-              <a href={'https://www.facebook.com/ComicsScroller/'}>
-                <FbIcon className={cn.icon} />
-              </a>
-            </IconButton>
-            <IconButton>
-              <a href={'https://github.com/zeroshine/ComicsScroller/issues'}>
-                <GithubIcon className={cn.icon} />
-              </a>
-            </IconButton>
             <IconButton
               onClickHandler={prevable ? this.prevChapterHandler : undefined}
             >
