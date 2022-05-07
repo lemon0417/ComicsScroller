@@ -211,7 +211,7 @@ export function fetchChapterEpic(action$, store) {
                       ...(item.dm5[comicsID]
                         ? item.dm5[comicsID].readedChapters
                         : {}),
-                      [chapter]: chapter,
+                      [chapter]: 0,
                     },
                   },
                 },
@@ -272,7 +272,7 @@ export function updateReadedEpic(action$, store) {
             lastReaded: chapterID,
             readedChapters: {
               ...item.dm5[comicsID].readedChapters,
-              [chapterID]: chapterID,
+              [chapterID]: 0,
             },
           },
         },
