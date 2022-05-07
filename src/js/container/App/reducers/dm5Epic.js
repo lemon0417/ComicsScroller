@@ -128,7 +128,7 @@ export function fetchChapterPage$(url) {
       (acc, n) => ({
         ...acc,
         [n.getAttribute('href').replace(/\//g, '')]: {
-          title: n.textContent,
+          title: n.textContent.trim(),
           href: n.href,
         },
       }),
