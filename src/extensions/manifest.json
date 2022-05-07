@@ -33,8 +33,6 @@
     "activeTab",
     "http://*.comicbus.com/*",
     "http://*.sfacg.com/*",
-    "http://*.dm5.com/*",
-    "http://*.cdndm5.com/*",
     "https://*.dm5.com/*",
     "https://*.cdndm5.com/*",
     "https://*.cdnmanhua.net/*",
