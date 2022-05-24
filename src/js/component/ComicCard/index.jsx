@@ -137,7 +137,7 @@ class ComicCard extends Component {
         data-move={this.props.move}
         data-shift={this.props.shift}
       >
-        <img src={this.props.coverURL} alt={'cover'} />
+        <img src={this.props.coverURL} loading="lazy" alt={'cover'} />
         <div className={cn.trash} onClick={this.removeHandler}>
           <TrashTopIcon className={cn.trashTop} />
           <TrashBodyIcon className={cn.trashBody} />
