@@ -22,7 +22,6 @@ function getComicCardClass(shift: boolean, move: boolean) {
 
 class ComicCard extends Component {
   props: {
-    baseURL: string,
     chapterURL: string,
     category: string,
     comicsID: string,
@@ -48,16 +47,8 @@ class ComicCard extends Component {
     },
   };
 
-  siteClickHandler = () => {
-    chrome.tabs.create({ url: this.props.baseURL });
-  };
-
   pageClickHandler = () => {
     chrome.tabs.create({ url: this.props.chapterURL });
-  };
-
-  siteClickHandler = () => {
-    chrome.tabs.create({ url: this.props.baseURL });
   };
 
   lastReadHandler = () => {
@@ -145,10 +136,6 @@ class ComicCard extends Component {
         <div className={cn.infor}>
           <h1 onClick={this.pageClickHandler}>{this.props.title}</h1>
           <div className={cn.itemContainer}>
-            <div>
-              <span>來源網站</span>
-              <span onClick={this.siteClickHandler}>{this.props.site}</span>
-            </div>
             {this.props.updateChapter ? (
               <div>
                 <span>更新章節</span>
@@ -191,7 +178,6 @@ function mapStateToProps(state, ownProps) {
     title,
     chapterURL,
     coverURL,
-    baseURL: state.popup[ownProps.site].baseURL,
     lastReaded: chapters[lastReaded] || {},
     lastChapter:
       chapterList[0] && chapters[chapterList[0]]
