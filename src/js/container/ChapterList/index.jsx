@@ -82,7 +82,7 @@ function mapStateToProps(state) {
   return {
     chapterList: map(chapterList, item => ({
       ...chapters[item],
-      readed: Object.prototype.hasOwnProperty.call(readedChapters, item) ,
+      readed: readedChapters.includes(item) ,
     })),
   };
 }

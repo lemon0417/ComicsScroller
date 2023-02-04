@@ -13,7 +13,7 @@ type State = {
   subscribe: boolean,
   chapters: {},
   chapterList: Array<*>,
-  readedChapters: {},
+  readedChapters: [],
   renderBeginIndex: number,
   renderEndIndex: number,
   imageList: {
@@ -44,7 +44,7 @@ const initialState = {
   subscribe: false,
   chapters: {},
   chapterList: [],
-  readedChapters: {},
+  readedChapters: [],
   renderBeginIndex: 0,
   renderEndIndex: 0,
   imageList: {
@@ -231,7 +231,7 @@ export function updateSubscribe(data: Array<*>) {
   return { type: UPDATE_SUBSCRIBE, data };
 }
 
-export function updateReadedChapters(data: {}) {
+export function updateReadedChapters(data: []) {
   return { type: UPDATE_READED_CHAPTERS, data };
 }
 

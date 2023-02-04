@@ -193,12 +193,12 @@ export function fetchChapterEpic(action$: any) {
                       coverURL,
                       chapterURL: `${baseURL}/${comicsID}`,
                       lastReaded: chapter,
-                      readedChapters: {
+                      readedChapters: [
                         ...(item.sf[comicsID]
                           ? item.sf[comicsID].readedChapters
-                          : {}),
-                        [chapter]: chapter,
-                      },
+                          : []),
+                        chapter,
+                      ],
                     },
                   },
                 };
@@ -268,10 +268,10 @@ export function updateReadedEpic(action$: any, store: { getState: Function }) {
           [comicsID]: {
             ...item.sf[comicsID],
             lastReaded: chapterID,
-            readedChapters: {
+            readedChapters: [
               ...item.sf[comicsID].readedChapters,
-              [chapterID]: chapterID,
-            },
+              chapterID,
+            ],
           },
         },
       };
