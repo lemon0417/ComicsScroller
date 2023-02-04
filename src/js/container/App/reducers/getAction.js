@@ -6,8 +6,8 @@ import {
   fetchImgSrc as fetchImgSrcDM5,
   fetchImgListEpic as fetchImgListEpicDM5,
   fetchImgList as fetchImgListDM5,
-  updateReadedEpic as updateReadedEpicDM5,
-  updateReaded as updateReadedDM5,
+  updateReadEpic as updateReadEpicDM5,
+  updateRead as updateReadDM5,
 } from './dm5Epic';
 
 import {
@@ -17,8 +17,8 @@ import {
   fetchImgSrc as fetchImgSrcSF,
   fetchImgListEpic as fetchImgListEpicSF,
   fetchImgList as fetchImgListSF,
-  updateReadedEpic as updateReadedEpicSF,
-  updateReaded as updateReadedSF,
+  updateReadEpic as updateReadEpicSF,
+  updateRead as updateReadSF,
 } from './sfEpic';
 
 import {
@@ -28,8 +28,8 @@ import {
   fetchImgSrc as fetchImgSrcComicbus,
   fetchImgListEpic as fetchImgListEpicComicbus,
   fetchImgList as fetchImgListComicbus,
-  updateReadedEpic as updateReadedEpicComicbus,
-  updateReaded as updateReadedComicbus,
+  updateReadEpic as updateReadEpicComicbus,
+  updateRead as updateReadComicbus,
 } from './comicBusEpic';
 
 function getInfor(site) {
@@ -61,21 +61,21 @@ function getAction(site) {
         fetchChapter: fetchChapterDM5,
         fetchImgSrc: fetchImgSrcDM5,
         fetchImgList: fetchImgListDM5,
-        updateReaded: updateReadedDM5,
+        updateRead: updateReadDM5,
       };
     case 'sf':
       return {
         fetchChapter: fetchChapterSF,
         fetchImgSrc: fetchImgSrcSF,
         fetchImgList: fetchImgListSF,
-        updateReaded: updateReadedSF,
+        updateRead: updateReadSF,
       };
     case 'comicbus':
       return {
         fetchChapter: fetchChapterComicbus,
         fetchImgSrc: fetchImgSrcComicbus,
         fetchImgList: fetchImgListComicbus,
-        updateReaded: updateReadedComicbus,
+        updateRead: updateReadComicbus,
       };
     default:
       return {};
@@ -89,21 +89,21 @@ function getEpic(site) {
         fetchChapterEpic: fetchChapterEpicDM5,
         fetchImgSrcEpic: fetchImgSrcEpicDM5,
         fetchImgListEpic: fetchImgListEpicDM5,
-        updateReadedEpic: updateReadedEpicDM5,
+        updateReadEpic: updateReadEpicDM5,
       };
     case 'sf':
       return {
         fetchChapterEpic: fetchChapterEpicSF,
         fetchImgSrcEpic: fetchImgSrcEpicSF,
         fetchImgListEpic: fetchImgListEpicSF,
-        updateReadedEpic: updateReadedEpicSF,
+        updateReadEpic: updateReadEpicSF,
       };
     case 'comicbus':
       return {
         fetchChapterEpic: fetchChapterEpicComicbus,
         fetchImgSrcEpic: fetchImgSrcEpicComicbus,
         fetchImgListEpic: fetchImgListEpicComicbus,
-        updateReadedEpic: updateReadedEpicComicbus,
+        updateReadEpic: updateReadEpicComicbus,
       };
     default:
       return {};
@@ -120,12 +120,12 @@ export const {
   fetchChapter,
   fetchImgSrc,
   fetchImgList,
-  updateReaded,
+  updateRead,
 } = getAction(_site);
 
 export const {
   fetchChapterEpic,
   fetchImgSrcEpic,
   fetchImgListEpic,
-  updateReadedEpic,
+  updateReadEpic,
 } = getEpic(_site);

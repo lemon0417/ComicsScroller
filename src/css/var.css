@@ -1,6 +1,6 @@
 @value grey-800, grey-300, grey-900, grey-400 from './color.css';
 
-@value readed-color: grey-400;
+@value read-color: grey-400;
 @value header-color: grey-300;
 @value header-background: grey-800;
 @value img-background: grey-900;

@@ -22,18 +22,18 @@ function getComicCardClass(shift: boolean, move: boolean) {
 
 class ComicCard extends Component {
   props: {
-    chapterURL: string,
+    url: string,
     category: string,
     comicsID: string,
     chapterID: string,
-    coverURL: string,
+    cover: string,
     title: string,
     site: string,
     index: number,
     move: boolean,
     shift: boolean,
     moveCard: Function,
-    lastReaded: {
+    lastRead: {
       href: string,
       title: string,
     },
@@ -48,11 +48,11 @@ class ComicCard extends Component {
   };
 
   pageClickHandler = () => {
-    chrome.tabs.create({ url: this.props.chapterURL });
+    chrome.tabs.create({ url: this.props.url });
   };
 
   lastReadHandler = () => {
-    chrome.tabs.create({ url: this.props.lastReaded.href });
+    chrome.tabs.create({ url: this.props.lastRead.href });
   };
 
   lastChapterHandler = () => {
@@ -128,7 +128,7 @@ class ComicCard extends Component {
         data-move={this.props.move}
         data-shift={this.props.shift}
       >
-        <img src={this.props.coverURL} loading="lazy" alt={'cover'} />
+        <img src={this.props.cover} loading="lazy" alt={'cover'} />
         <div className={cn.trash} onClick={this.removeHandler}>
           <TrashTopIcon className={cn.trashTop} />
           <TrashBodyIcon className={cn.trashBody} />
@@ -149,7 +149,7 @@ class ComicCard extends Component {
             <div>
               <span>上次看到</span>
               <span onClick={this.lastReadHandler}>
-                {this.props.lastReaded.title}
+                {this.props.lastRead.title}
               </span>
             </div>
             <div>
@@ -168,17 +168,17 @@ class ComicCard extends Component {
 function mapStateToProps(state, ownProps) {
   const {
     title,
-    lastReaded,
-    coverURL,
-    chapterURL,
+    lastRead,
+    cover,
+    url,
     chapters,
     chapterList,
   } = state.popup[ownProps.site][ownProps.comicsID];
   return {
     title,
-    chapterURL,
-    coverURL,
-    lastReaded: chapters[lastReaded] || {},
+    url,
+    cover,
+    lastRead: chapters[lastRead] || {},
     lastChapter:
       chapterList[0] && chapters[chapterList[0]]
         ? chapters[chapterList[0]]

@@ -1,4 +1,4 @@
-@value header-background, header-color, readed-color from 'css/var';
+@value header-background, header-color, read-color from 'css/var';
 
 .ChapterList {
   width: 50vw;
@@ -87,12 +87,12 @@
   }
 }
 
-.chapter_readed {
+.chapter_read {
   cursor: pointer;
-  color: readed-color;
+  color: read-color;
   overflow: hidden;
   &:hover {
-    background: readed-color;
+    background: read-color;
     color: #fff;
   }
 }

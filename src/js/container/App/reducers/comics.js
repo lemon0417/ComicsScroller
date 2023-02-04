@@ -13,7 +13,7 @@ type State = {
   subscribe: boolean,
   chapters: {},
   chapterList: Array<*>,
-  readedChapters: [],
+  read: [],
   renderBeginIndex: number,
   renderEndIndex: number,
   imageList: {
@@ -44,7 +44,7 @@ const initialState = {
   subscribe: false,
   chapters: {},
   chapterList: [],
-  readedChapters: [],
+  read: [],
   renderBeginIndex: 0,
   renderEndIndex: 0,
   imageList: {
@@ -61,7 +61,7 @@ const UPDATE_CHAPTER_LIST = 'UPDATE_CHAPTER_LIST';
 const UPDATE_CHAPTER_LATEST_INDEX = 'UPDATE_CHAPTER_LATEST_INDEX';
 const UPDATE_CHAPTER_NOW_INDEX = 'UPDATE_CHAPTER_NOW_INDEX';
 const UPDATE_RENDER_INDEX = 'UPDATE_RENDER_INDEX';
-const UPDATE_READED_CHAPTERS = 'UPDATE_READED_CHAPTERS';
+const UPDATE_READ_CHAPTERS = 'UPDATE_READ_CHAPTERS';
 const CONCAT_IMAGE_LIST = 'CONCAT_IMAGE_LIST';
 const LOAD_IMAGE_SRC = 'LOAD_IMAGE_SRC';
 const UPDATE_IMAGE_TYPE = 'UPDATE_IMAGE_TYPE';
@@ -171,10 +171,10 @@ export default function comics(state: State = initialState, action: Action) {
         renderBeginIndex: action.begin,
         renderEndIndex: action.end,
       };
-    case UPDATE_READED_CHAPTERS:
+    case UPDATE_READ_CHAPTERS:
       return {
         ...state,
-        readedChapters: action.data,
+        read: action.data,
       };
     case UPDATE_CHAPTERS:
       return {
@@ -231,8 +231,8 @@ export function updateSubscribe(data: Array<*>) {
   return { type: UPDATE_SUBSCRIBE, data };
 }
 
-export function updateReadedChapters(data: []) {
-  return { type: UPDATE_READED_CHAPTERS, data };
+export function updateReadChapters(data: []) {
+  return { type: UPDATE_READ_CHAPTERS, data };
 }
 
 export function updateChapters(data: {}) {

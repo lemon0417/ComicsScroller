@@ -91,10 +91,14 @@ function comicsQuery() {
         text: `${item.update.length > 0 ? item.update.length : ''}`,
       });
       forEach(item.subscribe, ({ site, comicsID }) => {
-        const { chapterURL } = item[site][comicsID];
+        const { url } = item[site][comicsID];
+        if (!url) {
+          console.log(item, `comicsID: ${comicsID}`);
+          return;
+        }
         const fetchChapterPage = fetchChapterPage$[site];
-        fetchChapterPage(chapterURL).subscribe(
-          ({ title, chapterList, coverURL, chapters }) => {
+        fetchChapterPage(url).subscribe(
+          ({ title, chapterList, cover, chapters }) => {
             const comic = item[site][comicsID];
             forEach(chapterList, chapterID => {
               if (!comic.chapters[chapterID]) {
@@ -108,7 +112,7 @@ function comicsQuery() {
                           ...oldStore[site][comicsID],
                           title,
                           chapterList,
-                          coverURL,
+                          cover,
                           chapters,
                         },
                       },

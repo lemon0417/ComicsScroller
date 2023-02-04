@@ -22,7 +22,7 @@ import {
   updateChapterLatestIndex,
   updateChapterNowIndex,
   updateRenderIndex,
-  updateReadedChapters,
+  updateReadChapters,
   updateSubscribe,
 } from './comics';
 import { startScroll } from './scrollEpic';
@@ -31,7 +31,7 @@ const baseURL = 'https://www.dm5.com';
 const FETCH_CHAPTER = 'FETCH_CHAPTER';
 const FETCH_IMAGE_SRC = 'FETCH_IMAGE_SRC';
 const FETCH_IMG_LIST = 'FETCH_IMG_LIST';
-const UPDATE_READED = 'UPDATE_READED';
+const UPDATE_READ = 'UPDATE_READ';
 
 function fetchImgs$(chapter) {
   return Observable.ajax({
@@ -119,7 +119,7 @@ export function fetchChapterPage$(url) {
       .querySelector('.info .title')
       .textContent.trim()
       .split(/\s+/)[0];
-    const coverURL = response.querySelector('.cover > img').src;
+    const cover = response.querySelector('.cover > img').src;
     const chapterList = map(chapterNodes, n =>
       n.getAttribute('href').replace(/\//g, ''),
     );
@@ -134,7 +134,7 @@ export function fetchChapterPage$(url) {
       }),
       {},
     );
-    return Observable.of({ title, coverURL, chapterList, chapters });
+    return Observable.of({ title, cover, chapterList, chapters });
   });
 }
 
@@ -173,7 +173,7 @@ export function fetchChapterEpic(action$, store) {
         Observable.of(fetchImgSrc(0, 6)),
         Observable.of(startScroll()),
         fetchChapterPage$(comicUrl).mergeMap(
-          ({ title, coverURL, chapterList, chapters }) => {
+          ({ title, cover, chapterList, chapters }) => {
             const chapterIndex = findIndex(
               chapterList,
               item => item === chapter,
@@ -206,12 +206,12 @@ export function fetchChapterEpic(action$, store) {
                     title,
                     chapters,
                     chapterList,
-                    coverURL,
-                    chapterURL: comicUrl,
-                    lastReaded: chapter,
-                    readedChapters: [
+                    cover,
+                    url: comicUrl,
+                    lastRead: chapter,
+                    read: [
                       ...(item.dm5[comicsID]
-                        ? item.dm5[comicsID].readedChapters
+                        ? item.dm5[comicsID].read
                         : []),
                       chapter,
                     ],
@@ -230,8 +230,8 @@ export function fetchChapterEpic(action$, store) {
                     }`,
                 });
                 store.dispatch(updateTitle(title));
-                store.dispatch(updateReadedChapters(
-                  newItem.dm5[comicsID].readedChapters,
+                store.dispatch(updateReadChapters(
+                  newItem.dm5[comicsID].read,
                 ));
                 store.dispatch(updateChapters(chapters));
                 store.dispatch(updateChapterList(chapterList));
@@ -256,8 +256,8 @@ export function fetchChapter(chapter) {
   return { type: FETCH_CHAPTER, chapter };
 }
 
-export function updateReadedEpic(action$, store) {
-  return action$.ofType(UPDATE_READED).mergeMap(action => {
+export function updateReadEpic(action$, store) {
+  return action$.ofType(UPDATE_READ).mergeMap(action => {
     chrome.storage.local.get(null, item => {
       const { comicsID, chapterList } = store.getState().comics;
       const chapterID = chapterList[action.index];
@@ -271,9 +271,9 @@ export function updateReadedEpic(action$, store) {
           ...item.dm5,
           [comicsID]: {
             ...item.dm5[comicsID],
-            lastReaded: chapterID,
-            readedChapters: [
-              ...item.dm5[comicsID].readedChapters,
+            lastRead: chapterID,
+            read: [
+              ...item.dm5[comicsID].read,
               chapterID,
             ],
           },
@@ -283,7 +283,7 @@ export function updateReadedEpic(action$, store) {
         chrome.browserAction.setBadgeText({
           text: `${newItem.update.length === 0 ? '' : newItem.update.length}`,
         });
-        store.dispatch(updateReadedChapters(newItem.dm5[comicsID].readedChapters))
+        store.dispatch(updateReadChapters(newItem.dm5[comicsID].read))
         store.dispatch(updateChapterNowIndex(action.index))
       });
     })
@@ -291,6 +291,6 @@ export function updateReadedEpic(action$, store) {
   });
 }
 
-export function updateReaded(index) {
-  return { type: UPDATE_READED, index };
+export function updateRead(index) {
+  return { type: UPDATE_READ, index };
 }

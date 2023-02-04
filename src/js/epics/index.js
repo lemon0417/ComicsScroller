@@ -4,7 +4,7 @@ import {
   fetchChapterEpic,
   fetchImgSrcEpic,
   fetchImgListEpic,
-  updateReadedEpic,
+  updateReadEpic,
 } from '../container/App/reducers/getAction';
 import scrollEpic from '../container/App/reducers/scrollEpic';
 import resizeEpic from '../container/App/reducers/resizeEpic';
@@ -15,7 +15,7 @@ const rootEpic = combineEpics(
   scrollEpic,
   resizeEpic,
   fetchImgListEpic,
-  updateReadedEpic,
+  updateReadEpic,
 );
 
 export default rootEpic;

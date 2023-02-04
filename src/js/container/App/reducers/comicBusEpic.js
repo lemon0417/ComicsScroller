@@ -23,7 +23,7 @@ import {
   updateChapterLatestIndex,
   updateChapterNowIndex,
   updateRenderIndex,
-  updateReadedChapters,
+  updateReadChapters,
   updateSubscribe,
 } from './comics';
 import { startScroll } from './scrollEpic';
@@ -32,7 +32,7 @@ const baseURL = 'http://www.comicbus.com';
 const FETCH_CHAPTER = 'FETCH_CHAPTER';
 const FETCH_IMAGE_SRC = 'FETCH_IMAGE_SRC';
 const FETCH_IMG_LIST = 'FETCH_IMG_LIST';
-const UPDATE_READED = 'UPDATE_READED';
+const UPDATE_READ = 'UPDATE_READ';
 
 declare var chrome: any;
 type Store = {
@@ -148,7 +148,7 @@ export function fetchChapterPage$(url: string, comicsID: string) {
     const chapterNodes = response.querySelectorAll('.ch');
     const volNodes = response.querySelectorAll('.vol');
     const title = response.title.split(',')[0];
-    const coverURL = `${baseURL}/pics/0/${comicsID}.jpg`;
+    const cover = `${baseURL}/pics/0/${comicsID}.jpg`;
     const chapterList = [
       ...map(chapterNodes, n => {
         const arr = /\'(.*)-(.*)\.html/.exec(n.getAttribute('onclick'));
@@ -195,7 +195,7 @@ export function fetchChapterPage$(url: string, comicsID: string) {
         {},
       ),
     };
-    return Observable.of({ title, coverURL, chapterList, chapters });
+    return Observable.of({ title, cover: cover, chapterList, chapters });
   });
 }
 
@@ -234,7 +234,7 @@ export function fetchChapterEpic(action$: any) {
         fetchChapterPage$(
           `${baseURL}/html/${comicsID}.html`,
           comicsID,
-        ).mergeMap(({ title, coverURL, chapterList, chapters }) => {
+        ).mergeMap(({ title, cover, chapterList, chapters }) => {
           const chapterIndex = findIndex(
             chapterList,
             item => item === action.chapter,
@@ -267,12 +267,12 @@ export function fetchChapterEpic(action$: any) {
                     title,
                     chapters,
                     chapterList,
-                    coverURL,
-                    chapterURL: `${baseURL}/html/${comicsID}.html`,
-                    lastReaded: action.chapter,
-                    readedChapters: [
+                    cover,
+                    url: `${baseURL}/html/${comicsID}.html`,
+                    lastRead: action.chapter,
+                    read: [
                       ...(item.comicbus[comicsID]
-                        ? item.comicbus[comicsID].readedChapters
+                        ? item.comicbus[comicsID].read
                         : []),
                       action.chapter,
                     ],
@@ -301,8 +301,8 @@ export function fetchChapterEpic(action$: any) {
                   });
                   const result$ = [
                     updateTitle(title),
-                    updateReadedChapters(
-                      newItem.comicbus[comicsID].readedChapters,
+                    updateReadChapters(
+                      newItem.comicbus[comicsID].read,
                     ),
                     updateChapters(chapters),
                     updateChapterList(chapterList),
@@ -331,8 +331,8 @@ export function fetchChapter(chapter: string) {
   return { type: FETCH_CHAPTER, chapter };
 }
 
-export function updateReadedEpic(action$: any, store: { getState: Function }) {
-  return action$.ofType(UPDATE_READED).mergeMap(action =>
+export function updateReadEpic(action$: any, store: { getState: Function }) {
+  return action$.ofType(UPDATE_READ).mergeMap(action =>
     Observable.bindCallback(chrome.storage.local.get)().mergeMap(item => {
       const { comicsID, chapterList } = store.getState().comics;
       const chapterID = chapterList[action.index];
@@ -346,9 +346,9 @@ export function updateReadedEpic(action$: any, store: { getState: Function }) {
           ...item.comicbus,
           [comicsID]: {
             ...item.comicbus[comicsID],
-            lastReaded: chapterID,
-            readedChapters: [
-              ...item.comicbus[comicsID].readedChapters,
+            lastRead: chapterID,
+            read: [
+              ...item.comicbus[comicsID].read,
               chapterID,
             ],
           },
@@ -361,7 +361,7 @@ export function updateReadedEpic(action$: any, store: { getState: Function }) {
           text: `${newItem.update.length === 0 ? '' : newItem.update.length}`,
         });
         return [
-          updateReadedChapters(newItem.comicbus[comicsID].readedChapters),
+          updateReadChapters(newItem.comicbus[comicsID].read),
           updateChapterNowIndex(action.index),
         ];
       });
@@ -369,6 +369,6 @@ export function updateReadedEpic(action$: any, store: { getState: Function }) {
   );
 }
 
-export function updateReaded(index: number) {
-  return { type: UPDATE_READED, index };
+export function updateRead(index: number) {
+  return { type: UPDATE_READ, index };
 }

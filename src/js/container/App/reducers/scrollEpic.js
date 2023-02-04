@@ -5,7 +5,7 @@ import 'rxjs/add/operator/throttleTime';
 import 'rxjs/add/operator/map';
 import 'rxjs/add/operator/mergeMap';
 import findIndex from 'lodash/findIndex';
-import { fetchImgSrc, fetchImgList, updateReaded } from './getAction';
+import { fetchImgSrc, fetchImgList, updateRead } from './getAction';
 import { updateChapterLatestIndex, updateRenderIndex } from './comics';
 
 const START_SCROLL_EPIC = 'START_SCROLL_EPIC';
@@ -87,7 +87,7 @@ function fromScrollEvent(store: { getState: Function }, cancelType: string) {
           );
         }
         if (chapterNowIndex !== imgChapterIndex) {
-          result$.push(updateReaded(imgChapterIndex));
+          result$.push(updateRead(imgChapterIndex));
         }
       }
       return result$;

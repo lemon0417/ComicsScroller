@@ -17,7 +17,7 @@ import {
   updateChapterLatestIndex,
   updateSubscribe,
 } from './reducers/comics';
-import { fetchImgList, fetchChapter, updateReaded } from './reducers/getAction';
+import { fetchImgList, fetchChapter, updateRead } from './reducers/getAction';
 import { stopScroll } from './reducers/scrollEpic';
 import { startResize } from './reducers/resizeEpic';
 
@@ -47,7 +47,7 @@ class App extends Component {
     resetImg: Function,
     updateChapterLatestIndex: Function,
     updateSubscribe: Function,
-    updateReaded: Function,
+    updateRead: Function,
     fetchImgList: Function,
   };
 
@@ -97,7 +97,7 @@ class App extends Component {
     const index = this.props.chapterNowIndex + 1;
     this.props.stopScroll();
     this.props.resetImg();
-    this.props.updateReaded(index);
+    this.props.updateRead(index);
     this.props.updateChapterLatestIndex(index);
     this.props.fetchImgList(index);
   };
@@ -106,7 +106,7 @@ class App extends Component {
     const index = this.props.chapterNowIndex - 1;
     this.props.stopScroll();
     this.props.resetImg();
-    this.props.updateReaded(index);
+    this.props.updateRead(index);
     this.props.updateChapterLatestIndex(index);
     this.props.fetchImgList(index);
   };
@@ -161,7 +161,7 @@ class App extends Component {
               <MenuIcon className={cn.icon} />
             </IconButton>
             <span>Comics Scroller</span>
-            <a target="_blank" href={this.props.chapterURL}>{`${
+            <a target="_blank" href={this.props.url}>{`${
               this.props.title
             }`}</a>
             <span>&gt;</span>
@@ -230,7 +230,7 @@ function mapStateToProps(state) {
     chapterNowIndex,
     comicsID,
     subscribe,
-    chapterURL: `${baseURL}/${comicsID}`,
+    url: `${baseURL}/${comicsID}`,
   };
 }
 
@@ -239,7 +239,7 @@ const connectedApp = connect(mapStateToProps, {
   stopScroll,
   startResize,
   resetImg,
-  updateReaded,
+  updateRead,
   updateChapterLatestIndex,
   updateSubscribe,
   fetchImgList,
