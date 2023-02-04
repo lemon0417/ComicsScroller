@@ -164,13 +164,15 @@ export function fetchImgList(index) {
 export function fetchChapterEpic(action$, store) {
   return action$.ofType(FETCH_CHAPTER).mergeMap(action =>
     fetchImgs$(action.chapter).mergeMap(({ chapter, imgList, comicsID }) => {
+      const comicUrl = `${baseURL}/${comicsID}/`;
+
       return Observable.merge(
         Observable.of(updateComicsID(comicsID)),
         Observable.of(concatImageList(imgList)),
         Observable.of(updateRenderIndex(0, 6)),
         Observable.of(fetchImgSrc(0, 6)),
         Observable.of(startScroll()),
-        fetchChapterPage$(`${baseURL}/${comicsID}/`).mergeMap(
+        fetchChapterPage$(comicUrl).mergeMap(
           ({ title, coverURL, chapterList, chapters }) => {
             const chapterIndex = findIndex(
               chapterList,
@@ -205,7 +207,7 @@ export function fetchChapterEpic(action$, store) {
                     chapters,
                     chapterList,
                     coverURL,
-                    chapterURL: `${baseURL}/${comicsID}`,
+                    chapterURL: comicUrl,
                     lastReaded: chapter,
                     readedChapters: {
                       ...(item.dm5[comicsID]
