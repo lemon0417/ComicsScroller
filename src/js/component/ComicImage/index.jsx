@@ -50,7 +50,7 @@ export class ComicImage extends Component {
         if (this.w > this.h) {
           this.props.updateImgType(innerHeight - 68, this.props.index, 'wide');
         } else {
-          // this.props.updateImgType(1400, this.props.index, 'normal');
+          
           this.props.updateImgType(this.h + 4, this.props.index, 'natural');
         }
       } else {
@@ -65,10 +65,7 @@ export class ComicImage extends Component {
       <div
         className={getImgClass(this.props.type)}
         style={{
-          height:
-            this.props.type === 'wide'
-              ? this.props.innerHeight - 68
-              : this.props.height,
+          minHeight: this.props.height,
         }}
       >
         {!this.state.showImage && this.props.type !== 'end' ? (
@@ -81,7 +78,7 @@ export class ComicImage extends Component {
             style={this.state.showImage ? undefined : { display: 'none' }}
             src={this.props.src}
             onLoad={this.imgLoadHandler}
-            alt={'comicImage'}
+            alt={this.props.index}
           />
         ) : (
           undefined

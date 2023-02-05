@@ -1,6 +1,6 @@
 .ComicImageNatural {
   border: 2px solid;
-  margin: 20px 0;
+  margin: 5px 0;
   text-align: center;
   display: flex;
   align-items: center;
@@ -8,7 +8,6 @@
   max-width: calc(100vw);
   > img {
     height: 100%;
-    max-width: calc(100vw - 4px);
     object-fit: contain;
   }
   > div {
