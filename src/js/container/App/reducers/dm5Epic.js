@@ -116,10 +116,10 @@ export function fetchChapterPage$(url) {
   }).mergeMap(function fetchChapterPageHandler({ response }) {
     const chapterNodes = response.querySelectorAll('#chapterlistload li > a');
     const title = response
-      .querySelector('.info .title')
+      .querySelector('.banner_detail .info > .title')
       .textContent.trim()
       .split(/\s+/)[0];
-    const cover = response.querySelector('.cover > img').src;
+    const cover = response.querySelector('.banner_detail .cover > img').src;
     const chapterList = map(chapterNodes, n =>
       n.getAttribute('href').replace(/\//g, ''),
     );
