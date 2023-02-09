@@ -194,7 +194,7 @@ export function fetchChapterEpic(action$, store) {
                     comicsID,
                   },
                   ...filter(
-                    item.history,
+                    item.history.slice(0, 50),
                     historyItem =>
                       historyItem.site !== 'dm5' ||
                       historyItem.comicsID !== comicsID,
