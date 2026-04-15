@@ -1,3 +1,8 @@
+import {
+  IMAGE_LOAD_FAILED,
+  type ReaderImageFailureStage,
+  RETRY_IMAGE,
+} from "@domain/actions/reader";
 import { buildSeriesKey } from "@infra/services/library/schema";
 import reduce from "lodash/reduce";
 
@@ -17,10 +22,13 @@ export type ComicsImageSource = {
 };
 
 export type ComicsImageRecord = ComicsImageSource & {
+  autoRetryCount: number;
   height: number;
+  loadError: ReaderImageFailureStage | null;
   loading: boolean;
   naturalHeight: number;
   naturalWidth: number;
+  requestSrc: string;
   type: ComicsImageType;
 };
 
@@ -69,7 +77,10 @@ type Action = {
   naturalHeight?: number;
   baseURL?: string;
   site?: string;
+  stage?: ReaderImageFailureStage;
 };
+
+export const MAX_IMAGE_AUTO_RETRY_COUNT = 2;
 
 const initialState: ComicsState = {
   innerHeight: typeof window === "undefined" ? 0 : window.innerHeight,
@@ -116,7 +127,10 @@ const UPDATE_SITE_INFO = "UPDATE_SITE_INFO";
 
 function createFallbackImageRecord(chapter = ""): ComicsImageRecord {
   return {
+    autoRetryCount: 0,
     chapter,
+    loadError: null,
+    requestSrc: "",
     src: "",
     height: 1400,
     loading: false,
@@ -172,10 +186,12 @@ export default function comics(
               ...state.imageList.entity,
               [action.index]: {
                 ...currentRecord,
+                autoRetryCount: 0,
                 height:
                   typeof action.height === "number"
                     ? action.height
                     : currentRecord.height,
+                loadError: null,
                 type: action.imgType || currentRecord.type,
                 naturalWidth:
                   typeof action.naturalWidth === "number"
@@ -213,8 +229,11 @@ export default function comics(
                   ...acc,
                   [state.imageList.result.length + k]: {
                     ...item,
+                    autoRetryCount: 0,
                     loading: item.type !== "paywall",
                     height: item.type === "paywall" ? 320 : 1400,
+                    loadError: null,
+                    requestSrc: item.src,
                     type: item.type || "image",
                     naturalWidth: 0,
                     naturalHeight: 0,
@@ -223,8 +242,11 @@ export default function comics(
                 state.imageList.entity,
               ) as Record<number, ComicsImageRecord>,
               [data.length + state.imageList.result.length]: {
+                autoRetryCount: 0,
                 type: "end",
                 chapter: data[0].chapter,
+                loadError: null,
+                requestSrc: "",
                 src: "",
                 loading: false,
                 height: 72,
@@ -236,6 +258,78 @@ export default function comics(
         };
       }
       return state;
+    case IMAGE_LOAD_FAILED: {
+      if (typeof action.index !== "number" || action.index < 0) {
+        return state;
+      }
+      if (!action.stage) {
+        return state;
+      }
+      const currentRecord = state.imageList.entity[action.index];
+      if (
+        !currentRecord ||
+        currentRecord.type === "end" ||
+        currentRecord.type === "paywall"
+      ) {
+        return state;
+      }
+      if (currentRecord.autoRetryCount < MAX_IMAGE_AUTO_RETRY_COUNT) {
+        return {
+          ...state,
+          imageList: {
+            ...state.imageList,
+            entity: {
+              ...state.imageList.entity,
+              [action.index]: {
+                ...currentRecord,
+                autoRetryCount: currentRecord.autoRetryCount + 1,
+                loadError: null,
+                loading: true,
+                src: currentRecord.requestSrc,
+              },
+            },
+          },
+        };
+      }
+      return {
+        ...state,
+        imageList: {
+          ...state.imageList,
+          entity: {
+            ...state.imageList.entity,
+            [action.index]: {
+              ...currentRecord,
+              loadError: action.stage,
+              loading: false,
+              src: currentRecord.requestSrc,
+            },
+          },
+        },
+      };
+    }
+    case RETRY_IMAGE:
+      if (typeof action.index !== "number" || action.index < 0) {
+        return state;
+      }
+      if (!state.imageList.entity[action.index]) {
+        return state;
+      }
+      return {
+        ...state,
+        imageList: {
+          ...state.imageList,
+          entity: {
+            ...state.imageList.entity,
+            [action.index]: {
+              ...state.imageList.entity[action.index],
+              autoRetryCount: 0,
+              loadError: null,
+              loading: true,
+              src: state.imageList.entity[action.index].requestSrc,
+            },
+          },
+        },
+      };
     case UPDATE_CHAPTER_LATEST_INDEX:
       if (typeof action.data !== "number") return state;
       return {

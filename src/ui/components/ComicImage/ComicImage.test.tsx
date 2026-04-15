@@ -1,6 +1,6 @@
 import type { ComicsImageType } from "@domain/reducers/comics";
 import { getImageRenderMetrics } from "@domain/utils/readerLayout";
-import { fireEvent, render } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { ComponentType } from "react";
 
 jest.mock("react-redux", () => ({
@@ -10,27 +10,35 @@ jest.mock("react-redux", () => ({
 import ComicImage from ".";
 
 type ComicImageTestProps = {
+  autoRetryCount: number;
   chapter?: string;
   height: number;
   href?: string;
   index: number;
   innerHeight: number;
   innerWidth: number;
+  loadError: "image" | "resolve" | null;
   loading: boolean;
   renderHeight?: number;
   renderWidth?: number;
   src: string;
   type?: ComicsImageType;
+  imageLoadFailed: jest.Mock;
+  retryImage: jest.Mock;
   updateImgType: jest.Mock;
 };
 
 const defaultProps: ComicImageTestProps = {
+  autoRetryCount: 0,
   loading: false,
+  loadError: null,
   src: "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==",
   height: 0,
   innerHeight: 0,
   innerWidth: 0,
   index: 0,
+  imageLoadFailed: jest.fn(),
+  retryImage: jest.fn(),
   updateImgType: jest.fn(),
 };
 
@@ -115,6 +123,19 @@ describe("ComicImage Loading controls", () => {
       1800,
     );
   });
+
+  it("dispatches image errors for retry handling", () => {
+    const imageLoadFailed = jest.fn();
+    const { container } = renderComicImage({
+      imageLoadFailed,
+    });
+    const img = container.querySelector("img");
+    if (!img) throw new Error("expected img element");
+
+    fireEvent.error(img);
+
+    expect(imageLoadFailed).toHaveBeenCalledWith(0, "image");
+  });
 });
 
 describe("ComicImage shows End", () => {
@@ -182,5 +203,33 @@ describe("ComicImage shows Paywall", () => {
       "href",
       "https://www.dm5.com/m1655813/",
     );
+  });
+});
+
+describe("ComicImage shows retry state", () => {
+  it("renders a retry card when terminal image errors are reached", () => {
+    const { getByRole, getByText, queryByRole, queryByText } =
+      renderComicImage({
+        loadError: "image",
+        loading: false,
+      });
+
+    expect(queryByText("Loading...")).not.toBeInTheDocument();
+    expect(queryByRole("img")).not.toBeInTheDocument();
+    expect(getByText("載入失敗")).toBeInTheDocument();
+    expect(getByRole("button", { name: "重試" })).toBeInTheDocument();
+  });
+
+  it("retries the current page when the retry button is clicked", () => {
+    const retryImage = jest.fn();
+    renderComicImage({
+      loadError: "resolve",
+      loading: false,
+      retryImage,
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "重試" }));
+
+    expect(retryImage).toHaveBeenCalledWith(0);
   });
 });

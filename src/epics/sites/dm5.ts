@@ -1,4 +1,4 @@
-import { FETCH_IMAGE_SRC } from "@domain/actions/reader";
+import { FETCH_IMAGE_SRC, imageLoadFailed } from "@domain/actions/reader";
 import { loadImgSrc } from "@domain/reducers/comics";
 import { getSeriesCover } from "@infra/services/library/reader";
 import { buildSeriesKey } from "@infra/services/library/schema";
@@ -114,7 +114,9 @@ export const fetchImgSrcEpic: AppEpic = (action$, state$) =>
         }),
         mergeMap((id: number) => {
           const currentEntity = entity[id];
-          const requestUrl = String(currentEntity?.src || "");
+          const requestUrl = String(
+            currentEntity?.requestSrc || currentEntity?.src || "",
+          );
           const requestKey = buildImageRequestKey(id, requestUrl);
           if (!requestUrl || inFlightImageSrcRequests.has(requestKey)) {
             return EMPTY;
@@ -138,15 +140,24 @@ export const fetchImgSrcEpic: AppEpic = (action$, state$) =>
               if (!latestEntity || latestEntity.src !== requestUrl) {
                 return EMPTY;
               }
+              if (!resolved) {
+                devLog("dm5:fetchImgSrc:empty", {
+                  attempt: (currentEntity?.autoRetryCount || 0) + 1,
+                  id,
+                  requestUrl,
+                });
+                return of(imageLoadFailed(id, "resolve"));
+              }
               return of(loadImgSrc(resolved, id));
             }),
             catchError((error) => {
               devLog("dm5:fetchImgSrc:error", {
+                attempt: (currentEntity?.autoRetryCount || 0) + 1,
                 id,
                 requestUrl,
                 reason: error instanceof Error ? error.message : String(error),
               });
-              return EMPTY;
+              return of(imageLoadFailed(id, "resolve"));
             }),
             finalize(() => {
               inFlightImageSrcRequests.delete(requestKey);

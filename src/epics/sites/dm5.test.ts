@@ -1,4 +1,4 @@
-import { fetchImgSrc } from "@domain/actions/reader";
+import { fetchImgSrc,imageLoadFailed  } from "@domain/actions/reader";
 import { loadImgSrc } from "@domain/reducers/comics";
 import { lastValueFrom, of, Subject } from "rxjs";
 import { ajax } from "rxjs/ajax";
@@ -27,8 +27,12 @@ describe("dm5 fetchImgSrcEpic", () => {
             result: [0],
             entity: {
               0: {
+                autoRetryCount: 0,
+                requestSrc:
+                  "https://www.dm5.com/manhua-demo/chapterfun.ashx?cid=1&page=1",
                 src: "https://www.dm5.com/manhua-demo/chapterfun.ashx?cid=1&page=1",
                 loading: true,
+                loadError: null,
                 type: "image",
                 cid: "1",
                 key: "deadbeef",
@@ -60,5 +64,43 @@ describe("dm5 fetchImgSrcEpic", () => {
         0,
       ),
     ]);
+  });
+
+  it("surfaces a resolve failure so the retry flow can recover", async () => {
+    const ajaxMock = ajax as unknown as jest.Mock;
+    ajaxMock.mockReturnValueOnce(
+      of({
+        response: "",
+      }),
+    );
+
+    const state$ = {
+      value: {
+        comics: {
+          imageList: {
+            result: [0],
+            entity: {
+              0: {
+                autoRetryCount: 0,
+                requestSrc:
+                  "https://www.dm5.com/manhua-demo/chapterfun.ashx?cid=1&page=1",
+                src: "https://www.dm5.com/manhua-demo/chapterfun.ashx?cid=1&page=1",
+                loading: true,
+                loadError: null,
+                type: "image",
+                cid: "1",
+                key: "deadbeef",
+              },
+            },
+          },
+        },
+      },
+    };
+
+    await expect(
+      lastValueFrom(
+        fetchImgSrcEpic(of(fetchImgSrc(0, 0)), state$ as any).pipe(toArray()),
+      ),
+    ).resolves.toEqual([imageLoadFailed(0, "resolve")]);
   });
 });

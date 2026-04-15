@@ -191,7 +191,7 @@ export function createDirectFetchImgSrcEpic(): AppEpic {
               entity[item].loading &&
               entity[item].type !== "end",
           ),
-          rxMap((id) => loadImgSrc(entity[id].src, id)),
+          rxMap((id) => loadImgSrc(entity[id].requestSrc, id)),
         );
       }),
     );

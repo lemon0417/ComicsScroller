@@ -7,6 +7,10 @@ export const START_RESIZE_EPIC = "START_RESIZE_EPIC";
 export const NAVIGATE_CHAPTER = "NAVIGATE_CHAPTER";
 export const TOGGLE_SUBSCRIBE = "TOGGLE_SUBSCRIBE";
 export const UPDATE_VISIBLE_IMAGE_RANGE = "UPDATE_VISIBLE_IMAGE_RANGE";
+export const IMAGE_LOAD_FAILED = "IMAGE_LOAD_FAILED";
+export const RETRY_IMAGE = "RETRY_IMAGE";
+
+export type ReaderImageFailureStage = "image" | "resolve";
 
 export function fetchChapter(chapter: string) {
   return { type: FETCH_CHAPTER, chapter };
@@ -42,4 +46,15 @@ export function toggleSubscribe() {
 
 export function updateVisibleImageRange(begin: number, end: number) {
   return { type: UPDATE_VISIBLE_IMAGE_RANGE, begin, end };
+}
+
+export function imageLoadFailed(
+  index: number,
+  stage: ReaderImageFailureStage,
+) {
+  return { type: IMAGE_LOAD_FAILED, index, stage };
+}
+
+export function retryImage(index: number) {
+  return { type: RETRY_IMAGE, index };
 }

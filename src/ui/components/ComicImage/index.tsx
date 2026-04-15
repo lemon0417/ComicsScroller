@@ -1,21 +1,30 @@
 import {
+  imageLoadFailed,
+  type ReaderImageFailureStage,
+  retryImage,
+} from "@domain/actions/reader";
+import {
   type ComicsImageRecord,
   type ComicsImageType,
   type ComicsState,
   updateImgType,
 } from "@domain/reducers/comics";
 import { getImageRenderMetrics } from "@domain/utils/readerLayout";
+import { devLog } from "@utils/devLog";
 import {
   type SyntheticEvent,
   useCallback,
+  useEffect,
   useRef,
   useState,
 } from "react";
 import { connect } from "react-redux";
 
 type Props = {
+  autoRetryCount?: number;
   chapter?: string;
   href?: string;
+  loadError?: ReaderImageFailureStage | null;
   loading?: boolean;
   src?: string;
   type?: ComicsImageType;
@@ -34,62 +43,135 @@ type Props = {
     naturalWidth?: number,
     naturalHeight?: number,
   ) => void;
+  imageLoadFailed?: (
+    index: number,
+    stage: ReaderImageFailureStage,
+  ) => void;
+  retryImage?: (index: number) => void;
 };
 
-type State = {
-  showImage: boolean;
-};
+function getImageHost(url: string) {
+  try {
+    return new URL(url).host;
+  } catch {
+    return "";
+  }
+}
 
 function ComicImage(props: Props) {
   const {
+    autoRetryCount,
+    chapter,
     href,
     index,
     innerHeight,
     innerWidth,
+    loadError,
     loading,
+    naturalHeight,
+    naturalWidth,
+    height,
     renderHeight,
     renderWidth,
+    retryImage: retryImageProp,
     src,
     type,
+    imageLoadFailed: imageLoadFailedProp,
     updateImgType,
   } = props;
   const imageMetricsRef = useRef({ width: 0, height: 0 });
-  const [state, setState] = useState<State>({
-    showImage: false,
-  });
+  const [showImage, setShowImage] = useState(false);
+
+  useEffect(() => {
+    setShowImage(false);
+  }, [index, loading, src]);
 
   const imgLoadHandler = useCallback((event: SyntheticEvent<HTMLImageElement>) => {
-    if (type === "image" && event.currentTarget) {
+    if (event.currentTarget) {
       const target = event.currentTarget;
-      imageMetricsRef.current = {
-        width: target.naturalWidth,
-        height: target.naturalHeight,
-      };
-      const layout = getImageRenderMetrics({
-        type: target.naturalWidth > target.naturalHeight ? "wide" : "natural",
-        height: imageMetricsRef.current.height,
-        naturalWidth: imageMetricsRef.current.width,
-        naturalHeight: imageMetricsRef.current.height,
-        innerWidth,
-        innerHeight,
-      });
-      if (updateImgType && typeof index === "number") {
+      if (type === "image") {
+        imageMetricsRef.current = {
+          width: target.naturalWidth,
+          height: target.naturalHeight,
+        };
+        const layout = getImageRenderMetrics({
+          type: target.naturalWidth > target.naturalHeight ? "wide" : "natural",
+          height: imageMetricsRef.current.height,
+          naturalWidth: imageMetricsRef.current.width,
+          naturalHeight: imageMetricsRef.current.height,
+          innerWidth,
+          innerHeight,
+        });
+        if (updateImgType && typeof index === "number") {
+          updateImgType(
+            layout.height,
+            index,
+            layout.type,
+            imageMetricsRef.current.width,
+            imageMetricsRef.current.height,
+          );
+        }
+      } else if (
+        updateImgType &&
+        typeof index === "number" &&
+        type &&
+        type !== "end" &&
+        type !== "paywall"
+      ) {
         updateImgType(
-          layout.height,
+          typeof height === "number" ? height : 0,
           index,
-          layout.type,
-          imageMetricsRef.current.width,
-          imageMetricsRef.current.height,
+          type,
+          naturalWidth,
+          naturalHeight,
         );
       }
     }
-    setState({ showImage: true });
-  }, [index, innerHeight, innerWidth, type, updateImgType]);
+    setShowImage(true);
+  }, [
+    height,
+    index,
+    innerHeight,
+    innerWidth,
+    naturalHeight,
+    naturalWidth,
+    type,
+    updateImgType,
+  ]);
+
+  const imgErrorHandler = useCallback(() => {
+    if (!imageLoadFailedProp || typeof index !== "number") {
+      return;
+    }
+    devLog("reader:image:error", {
+      attempt: (autoRetryCount || 0) + 1,
+      chapter,
+      host: getImageHost(src || ""),
+      index,
+      stage: "image",
+    });
+    imageLoadFailedProp(index, "image");
+  }, [autoRetryCount, chapter, imageLoadFailedProp, index, src]);
+
+  const retryHandler = useCallback(() => {
+    if (!retryImageProp || typeof index !== "number") {
+      return;
+    }
+    devLog("reader:image:retry-click", {
+      chapter,
+      host: getImageHost(src || ""),
+      index,
+    });
+    retryImageProp(index);
+  }, [chapter, index, retryImageProp, src]);
 
   const variant = type || "init";
   const paywallHref = href || "";
+  const isEnd = type === "end";
+  const isPaywall = type === "paywall";
+  const isTerminalError = Boolean(loadError) && !loading && !isEnd && !isPaywall;
   const pageStyle =
-    type === "end"
+    isEnd
       ? undefined
       : {
           width: renderWidth,
@@ -102,7 +184,7 @@ function ComicImage(props: Props) {
       data-variant={variant}
       style={pageStyle}
     >
-      {type === "paywall" ? (
+      {isPaywall ? (
         <div className="reader-paywall-card">
           <p className="reader-paywall-title">此章節需要付費解鎖</p>
           <p className="reader-paywall-desc">
@@ -120,9 +202,22 @@ function ComicImage(props: Props) {
           ) : undefined}
         </div>
       ) : undefined}
-      {!state.showImage &&
-      type !== "end" &&
-      type !== "paywall" ? (
+      {isTerminalError ? (
+        <div className="reader-paywall-card">
+          <p className="reader-paywall-title">載入失敗</p>
+          <button
+            type="button"
+            className="ds-btn-secondary"
+            onClick={retryHandler}
+          >
+            重試
+          </button>
+        </div>
+      ) : undefined}
+      {!showImage &&
+      !isEnd &&
+      !isPaywall &&
+      !isTerminalError ? (
         <div className="reader-page-loading">
           <span className="text-sm font-medium text-comic-ink/45">
             Loading...
@@ -130,25 +225,30 @@ function ComicImage(props: Props) {
         </div>
       ) : undefined}
       {!loading &&
-      type !== "end" &&
-      type !== "paywall" ? (
+      !isEnd &&
+      !isPaywall &&
+      !isTerminalError ? (
         <img
-          style={state.showImage ? undefined : { display: "none" }}
+          style={showImage ? undefined : { display: "none" }}
           className="block h-full w-full object-contain"
           src={src}
           onLoad={imgLoadHandler}
+          onError={imgErrorHandler}
           alt={String(index ?? "")}
         />
       ) : undefined}
-      {type === "end" ? "本 章 結 束" : undefined}
+      {isEnd ? "本 章 結 束" : undefined}
     </div>
   );
 }
 
 function createFallbackImageRecord(): ComicsImageRecord {
   return {
+    autoRetryCount: 0,
     chapter: "",
     href: "",
+    loadError: null,
+    requestSrc: "",
     src: "",
     loading: true,
     height: 0,
@@ -168,6 +268,8 @@ function makeMapStateToProps(
       chapter,
       href,
       src,
+      loadError,
+      autoRetryCount,
       loading,
       type,
       height,
@@ -186,7 +288,9 @@ function makeMapStateToProps(
     return {
       src,
       chapter,
+      autoRetryCount,
       href,
+      loadError,
       loading,
       type,
       height,
@@ -201,5 +305,7 @@ function makeMapStateToProps(
 }
 
 export default connect(makeMapStateToProps, {
+  imageLoadFailed,
+  retryImage,
   updateImgType,
 })(ComicImage);
