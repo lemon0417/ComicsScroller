@@ -5,6 +5,7 @@ import {
 } from "@domain/actions/reader";
 import {
   concatImageList,
+  setChapterLoadFailed,
   updateCanPreloadPreviousChapter,
   updateChapterLatestIndex,
   updateChapterList,
@@ -101,6 +102,23 @@ describe("readerFlow", () => {
         updateChapterLatestIndex(0),
       ]),
     );
+  });
+
+  it("marks the chapter as failed when the initial chapter request yields no payload", async () => {
+    const fetchChapterImages$ = jest.fn(() => of());
+    const fetchMeta$ = jest.fn();
+
+    const output = await lastValueFrom(
+      createFetchChapterEpic({
+        site: "dm5",
+        baseURL: "https://www.dm5.com",
+        fetchChapterImages$,
+        fetchMeta$,
+      })(of(fetchChapter("c2")), {} as any).pipe(toArray()),
+    );
+
+    expect(fetchMeta$).not.toHaveBeenCalled();
+    expect(output).toEqual([setChapterLoadFailed()]);
   });
 
   it("dedupes in-flight preload requests for the same chapter", async () => {

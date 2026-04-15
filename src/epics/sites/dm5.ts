@@ -32,6 +32,7 @@ type ReaderRangeAction = {
 };
 
 const baseURL = "https://www.dm5.com";
+export const DM5_CHAPTER_REQUEST_TIMEOUT_MS = 10000;
 export const DM5_IMAGE_REQUEST_TIMEOUT_MS = 10000;
 const isDm5PaywalledImageList = (imgList: Array<{ type?: string }>) =>
   imgList[0]?.type === "paywall";
@@ -51,6 +52,7 @@ function fetchImgs$(chapterID: string) {
     url: `${baseURL}/${chapterID}/`,
     responseType: "text",
   }).pipe(
+    timeout({ first: DM5_CHAPTER_REQUEST_TIMEOUT_MS }),
     mergeMap(function fetchImgPageHandler({ response }) {
       const html =
         typeof response === "string" ? response : String(response ?? "");

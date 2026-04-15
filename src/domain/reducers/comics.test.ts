@@ -1,9 +1,14 @@
-import { imageLoadFailed, retryImage } from "@domain/actions/reader";
+import {
+  fetchChapter,
+  imageLoadFailed,
+  retryImage,
+} from "@domain/actions/reader";
 
 import comics, {
   concatImageList,
   MAX_IMAGE_AUTO_RETRY_COUNT,
   resetImg,
+  setChapterLoadFailed,
   updateCanPreloadPreviousChapter,
   updateChapterList,
   updateChapterNowIndex,
@@ -103,6 +108,30 @@ describe("comics reducer", () => {
         type: "paywall",
       }),
     );
+  });
+
+  it("tracks chapter load lifecycle for the current request", () => {
+    const prevState = comics(undefined, { type: "@@INIT" } as any) as any;
+    const loadingState = comics(prevState, fetchChapter("m100") as any);
+    const failedState = comics(loadingState, setChapterLoadFailed() as any);
+    const readyState = comics(
+      failedState,
+      concatImageList([
+        {
+          chapter: "m100",
+          src: "https://example.com/chapterfun.ashx?page=1",
+        },
+      ]) as any,
+    );
+
+    expect(loadingState).toEqual(
+      expect.objectContaining({
+        chapterLoadStatus: "loading",
+        requestedChapter: "m100",
+      }),
+    );
+    expect(failedState.chapterLoadStatus).toBe("failed");
+    expect(readyState.chapterLoadStatus).toBe("ready");
   });
 
   it("tracks request sources for retryable images", () => {

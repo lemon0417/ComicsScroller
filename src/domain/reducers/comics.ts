@@ -1,4 +1,5 @@
 import {
+  FETCH_CHAPTER,
   IMAGE_LOAD_FAILED,
   type ReaderImageFailureStage,
   RETRY_IMAGE,
@@ -45,8 +46,10 @@ export type ComicsState = {
   canPreloadPreviousChapter: boolean;
   baseURL: string;
   subscribe: boolean;
+  chapterLoadStatus: "failed" | "idle" | "loading" | "ready";
   chapters: Record<string, ComicsChapterRecord>;
   chapterList: string[];
+  requestedChapter: string;
   read: string[];
   renderBeginIndex: number;
   renderEndIndex: number;
@@ -76,6 +79,7 @@ type Action = {
   naturalWidth?: number;
   naturalHeight?: number;
   baseURL?: string;
+  chapter?: string;
   site?: string;
   stage?: ReaderImageFailureStage;
 };
@@ -95,8 +99,10 @@ const initialState: ComicsState = {
   canPreloadPreviousChapter: true,
   baseURL: "",
   subscribe: false,
+  chapterLoadStatus: "idle",
   chapters: {},
   chapterList: [],
+  requestedChapter: "",
   read: [],
   renderBeginIndex: 0,
   renderEndIndex: 0,
@@ -123,6 +129,7 @@ const UPDATE_IMAGE_TYPE = "UPDATE_IMAGE_TYPE";
 const UPDATE_INNER_HEIGHT = "UPDATE_INNER_HEIGHT";
 const UPDATE_INNER_WIDTH = "UPDATE_INNER_WIDTH";
 const RESET_IMAGE = "RESET_IMAGE";
+const SET_CHAPTER_LOAD_FAILED = "SET_CHAPTER_LOAD_FAILED";
 const UPDATE_SITE_INFO = "UPDATE_SITE_INFO";
 
 function createFallbackImageRecord(chapter = ""): ComicsImageRecord {
@@ -154,6 +161,15 @@ export default function comics(
   action: Action,
 ): ComicsState {
   switch (action.type) {
+    case FETCH_CHAPTER:
+      return {
+        ...state,
+        chapterLoadStatus: "loading",
+        requestedChapter:
+          typeof action.chapter === "string"
+            ? action.chapter
+            : state.requestedChapter,
+      };
     case LOAD_IMAGE_SRC:
       if (typeof action.index === "number" && action.index >= 0) {
         const currentRecord =
@@ -212,6 +228,7 @@ export default function comics(
         const data = action.data as ComicsImageSource[];
         return {
           ...state,
+          chapterLoadStatus: "ready",
           imageList: {
             ...state.imageList,
             result: [
@@ -421,6 +438,11 @@ export default function comics(
         ...state,
         title: action.data,
       };
+    case SET_CHAPTER_LOAD_FAILED:
+      return {
+        ...state,
+        chapterLoadStatus: "failed",
+      };
     case RESET_IMAGE:
       return {
         ...state,
@@ -536,4 +558,8 @@ export function updateInnerWidth(innerWidth: number) {
 
 export function updateSiteInfo(site: string, baseURL: string) {
   return { type: UPDATE_SITE_INFO, site, baseURL };
+}
+
+export function setChapterLoadFailed() {
+  return { type: SET_CHAPTER_LOAD_FAILED };
 }

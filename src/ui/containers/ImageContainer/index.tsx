@@ -1,6 +1,6 @@
 import ConnectedComicImage from "@components/ComicImage";
 import Loading from "@components/Loading";
-import { updateVisibleImageRange } from "@domain/actions/reader";
+import { fetchChapter, updateVisibleImageRange } from "@domain/actions/reader";
 import type { ComicsState } from "@domain/reducers/comics";
 import {
   DEFAULT_IMAGE_HEIGHT,
@@ -16,9 +16,12 @@ import {
 } from "react-window";
 
 type ImageContainerProps = {
+  chapterLoadStatus: ComicsState["chapterLoadStatus"];
+  fetchChapter: typeof fetchChapter;
   imageListKey: string;
   imageResult: number[];
   innerHeight: number;
+  requestedChapter: string;
   updateVisibleImageRange: typeof updateVisibleImageRange;
 };
 
@@ -49,9 +52,12 @@ function ReaderImageRow({
 }
 
 function ImageContainer({
+  chapterLoadStatus,
+  fetchChapter: fetchChapterProp,
   imageListKey,
   imageResult,
   innerHeight,
+  requestedChapter,
   updateVisibleImageRange: updateVisibleImageRangeProp,
 }: ImageContainerProps) {
   const lastVisibleRangeRef = useRef(EMPTY_VISIBLE_RANGE);
@@ -84,6 +90,21 @@ function ImageContainer({
   );
 
   if (imageResult.length === 0) {
+    if (chapterLoadStatus === "failed" && requestedChapter) {
+      return (
+        <main className="reader-canvas reader-loading" aria-label="漫畫頁面">
+          <p className="reader-paywall-title">載入失敗</p>
+          <button
+            type="button"
+            className="ds-btn-secondary"
+            onClick={() => fetchChapterProp(requestedChapter)}
+          >
+            重試
+          </button>
+        </main>
+      );
+    }
+
     return (
       <main className="reader-canvas reader-loading" aria-label="漫畫頁面">
         <Loading />
@@ -123,9 +144,12 @@ function mapStateToProps({ comics }: { comics: ComicsState }) {
         : "reader-list",
     imageResult,
     innerHeight: comics.innerHeight,
+    chapterLoadStatus: comics.chapterLoadStatus,
+    requestedChapter: comics.requestedChapter,
   };
 }
 
 export default connect(mapStateToProps, {
+  fetchChapter,
   updateVisibleImageRange,
 })(ImageContainer);

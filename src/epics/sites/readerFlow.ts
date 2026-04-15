@@ -11,6 +11,7 @@ import {
   type ComicsImageSource,
   concatImageList,
   loadImgSrc,
+  setChapterLoadFailed,
   updateCanPreloadPreviousChapter,
   updateChapterLatestIndex,
   updateChapterList,
@@ -39,6 +40,7 @@ import findIndex from "lodash/findIndex";
 import { ofType } from "redux-observable";
 import { EMPTY, from, merge, type Observable, of } from "rxjs";
 import {
+  defaultIfEmpty,
   filter as rxFilter,
   finalize,
   map as rxMap,
@@ -303,6 +305,7 @@ export function createFetchChapterEpic(config: ReaderFlowConfig): AppEpic {
               ),
             ),
           ),
+          defaultIfEmpty(setChapterLoadFailed()),
         );
       }),
     );

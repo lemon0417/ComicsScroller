@@ -1,10 +1,15 @@
-import { fetchImgSrc, imageLoadFailed } from "@domain/actions/reader";
-import { loadImgSrc } from "@domain/reducers/comics";
+import { fetchChapter, fetchImgSrc, imageLoadFailed } from "@domain/actions/reader";
+import { loadImgSrc, setChapterLoadFailed } from "@domain/reducers/comics";
 import { lastValueFrom, NEVER, of, Subject } from "rxjs";
 import { ajax } from "rxjs/ajax";
 import { toArray } from "rxjs/operators";
 
-import { DM5_IMAGE_REQUEST_TIMEOUT_MS, fetchImgSrcEpic } from "./dm5";
+import {
+  DM5_CHAPTER_REQUEST_TIMEOUT_MS,
+  DM5_IMAGE_REQUEST_TIMEOUT_MS,
+  fetchChapterEpic,
+  fetchImgSrcEpic,
+} from "./dm5";
 
 jest.mock("rxjs/ajax", () => ({
   ajax: jest.fn(),
@@ -142,6 +147,24 @@ describe("dm5 fetchImgSrcEpic", () => {
       await expect(outputPromise).resolves.toEqual([
         imageLoadFailed(0, "resolve"),
       ]);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("surfaces a retryable chapter failure when the chapter page request times out", async () => {
+    jest.useFakeTimers();
+    try {
+      const ajaxMock = ajax as unknown as jest.Mock;
+      ajaxMock.mockReturnValueOnce(NEVER);
+
+      const outputPromise = lastValueFrom(
+        fetchChapterEpic(of(fetchChapter("m100")), {} as any).pipe(toArray()),
+      );
+
+      await jest.advanceTimersByTimeAsync(DM5_CHAPTER_REQUEST_TIMEOUT_MS);
+
+      await expect(outputPromise).resolves.toEqual([setChapterLoadFailed()]);
     } finally {
       jest.useRealTimers();
     }

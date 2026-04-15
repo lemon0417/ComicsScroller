@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { ComponentType } from "react";
 
 jest.mock("react-redux", () => ({
@@ -15,9 +15,12 @@ jest.mock("@components/ComicImage", () => ({
 }));
 
 type ImageContainerProps = {
+  chapterLoadStatus: "failed" | "idle" | "loading" | "ready";
+  fetchChapter: jest.Mock;
   imageListKey: string;
   imageResult: number[];
   innerHeight: number;
+  requestedChapter: string;
   updateVisibleImageRange: jest.Mock;
 };
 
@@ -27,9 +30,12 @@ describe("ImageContainer", () => {
   it("renders a loading state when no images are available", () => {
     render(
       <TestImageContainer
+        chapterLoadStatus="loading"
+        fetchChapter={jest.fn()}
         imageListKey="reader-list"
         imageResult={[]}
         innerHeight={900}
+        requestedChapter="m100"
         updateVisibleImageRange={jest.fn()}
       />,
     );
@@ -43,9 +49,12 @@ describe("ImageContainer", () => {
 
     render(
       <TestImageContainer
+        chapterLoadStatus="ready"
+        fetchChapter={jest.fn()}
         imageListKey="m1"
         imageResult={imageResult}
         innerHeight={900}
+        requestedChapter="m100"
         updateVisibleImageRange={updateVisibleImageRange}
       />,
     );
@@ -57,5 +66,26 @@ describe("ImageContainer", () => {
       expect.any(Number),
       expect.any(Number),
     );
+  });
+
+  it("shows a retry button when the current chapter failed to load", () => {
+    const fetchChapter = jest.fn();
+
+    render(
+      <TestImageContainer
+        chapterLoadStatus="failed"
+        fetchChapter={fetchChapter}
+        imageListKey="reader-list"
+        imageResult={[]}
+        innerHeight={900}
+        requestedChapter="m100"
+        updateVisibleImageRange={jest.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "重試" }));
+
+    expect(screen.getByText("載入失敗")).toBeInTheDocument();
+    expect(fetchChapter).toHaveBeenCalledWith("m100");
   });
 });
