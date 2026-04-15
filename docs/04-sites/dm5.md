@@ -87,7 +87,7 @@ https://www.dm5.com/<DM5_CURL>/chapterfun.ashx
 回應為 obfuscated script（packer 格式）。
 
 reader 只會對目前可視範圍與 overscan 範圍內、且尚未解析完成的頁面請求 `chapterfun.ashx`。同一張圖在 request 尚未完成前，會做 in-flight dedupe，避免快速捲動時重複打同一頁。
-若 `chapterfun.ashx` request 或後續解包失敗，reader 會先自動重試 2 次；仍失敗時，該頁改顯示單張 `重試` 按鈕，不需要整頁重新整理。
+`chapterfun.ashx` request 另有 timeout 保護；若 request timeout、解包失敗，或後續圖片載入失敗，reader 會先自動重試 2 次；仍失敗時，該頁改顯示單張 `重試` 按鈕，不需要整頁重新整理。
 
 ## 5) 解包與解析
 來源：`src/sites/dm5/chapter.ts`
@@ -104,7 +104,6 @@ reader 只會對目前可視範圍與 overscan 範圍內、且尚未解析完成
 <pix>/<image-path>?cid=<cid>&key=<key>
 ```
 若 script 未提供 `cid/key`，則回退到章節頁解析的值。
-最終圖片 `<img>` 載入若失敗，也會沿用同一套自動重試 / 單張手動重試流程。
 
 ## 7) Header 規則
 CDN 需要 Referer 與成人 Cookie，由 `public/rules.json` 注入：

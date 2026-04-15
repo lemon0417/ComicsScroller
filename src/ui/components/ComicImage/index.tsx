@@ -50,6 +50,8 @@ type Props = {
   retryImage?: (index: number) => void;
 };
 
+export const IMAGE_LOAD_TIMEOUT_MS = 15000;
+
 function getImageHost(url: string) {
   try {
     return new URL(url).host;
@@ -80,11 +82,69 @@ function ComicImage(props: Props) {
     updateImgType,
   } = props;
   const imageMetricsRef = useRef({ width: 0, height: 0 });
+  const failureReportedRef = useRef(false);
   const [showImage, setShowImage] = useState(false);
 
   useEffect(() => {
     setShowImage(false);
+    failureReportedRef.current = false;
   }, [index, loading, src]);
+
+  const reportImageFailure = useCallback((stage: ReaderImageFailureStage) => {
+    if (
+      failureReportedRef.current ||
+      !imageLoadFailedProp ||
+      typeof index !== "number"
+    ) {
+      return;
+    }
+    failureReportedRef.current = true;
+    devLog(stage === "image" ? "reader:image:error" : "reader:image:resolve", {
+      attempt: (autoRetryCount || 0) + 1,
+      chapter,
+      host: getImageHost(src || ""),
+      index,
+      stage,
+    });
+    imageLoadFailedProp(index, stage);
+  }, [autoRetryCount, chapter, imageLoadFailedProp, index, src]);
+
+  useEffect(() => {
+    if (
+      loading ||
+      showImage ||
+      !src ||
+      loadError ||
+      type === "end" ||
+      type === "paywall"
+    ) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      devLog("reader:image:timeout", {
+        attempt: (autoRetryCount || 0) + 1,
+        chapter,
+        host: getImageHost(src),
+        index,
+      });
+      reportImageFailure("image");
+    }, IMAGE_LOAD_TIMEOUT_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [
+    autoRetryCount,
+    chapter,
+    index,
+    loadError,
+    loading,
+    reportImageFailure,
+    showImage,
+    src,
+    type,
+  ]);
 
   const imgLoadHandler = useCallback((event: SyntheticEvent<HTMLImageElement>) => {
     if (event.currentTarget) {
@@ -127,6 +187,7 @@ function ComicImage(props: Props) {
         );
       }
     }
+    failureReportedRef.current = true;
     setShowImage(true);
   }, [
     height,
@@ -140,18 +201,8 @@ function ComicImage(props: Props) {
   ]);
 
   const imgErrorHandler = useCallback(() => {
-    if (!imageLoadFailedProp || typeof index !== "number") {
-      return;
-    }
-    devLog("reader:image:error", {
-      attempt: (autoRetryCount || 0) + 1,
-      chapter,
-      host: getImageHost(src || ""),
-      index,
-      stage: "image",
-    });
-    imageLoadFailedProp(index, "image");
-  }, [autoRetryCount, chapter, imageLoadFailedProp, index, src]);
+    reportImageFailure("image");
+  }, [reportImageFailure]);
 
   const retryHandler = useCallback(() => {
     if (!retryImageProp || typeof index !== "number") {

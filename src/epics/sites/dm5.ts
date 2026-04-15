@@ -9,7 +9,7 @@ import {
 import { fetchMeta$ } from "@sites/dm5/meta";
 import { devLog } from "@utils/devLog";
 import { ofType } from "redux-observable";
-import { EMPTY, from, of } from "rxjs";
+import { EMPTY, from, of, timeout } from "rxjs";
 import { ajax } from "rxjs/ajax";
 import {
   catchError,
@@ -32,6 +32,7 @@ type ReaderRangeAction = {
 };
 
 const baseURL = "https://www.dm5.com";
+export const DM5_IMAGE_REQUEST_TIMEOUT_MS = 10000;
 const isDm5PaywalledImageList = (imgList: Array<{ type?: string }>) =>
   imgList[0]?.type === "paywall";
 const inFlightImageSrcRequests = new Set<string>();
@@ -130,6 +131,7 @@ export const fetchImgSrcEpic: AppEpic = (action$, state$) =>
               "Content-Type": "text/html; charset=utf-8",
             },
           }).pipe(
+            timeout({ first: DM5_IMAGE_REQUEST_TIMEOUT_MS }),
             mergeMap(function fetchImgSrcHandler({ response }) {
               const responseText =
                 typeof response === "string"

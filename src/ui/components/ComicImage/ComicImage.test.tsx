@@ -7,7 +7,7 @@ jest.mock("react-redux", () => ({
   connect: () => (Component: unknown) => Component,
 }));
 
-import ComicImage from ".";
+import ComicImage, { IMAGE_LOAD_TIMEOUT_MS } from ".";
 
 type ComicImageTestProps = {
   autoRetryCount: number;
@@ -135,6 +135,23 @@ describe("ComicImage Loading controls", () => {
     fireEvent.error(img);
 
     expect(imageLoadFailed).toHaveBeenCalledWith(0, "image");
+  });
+
+  it("times out stalled image loads", async () => {
+    jest.useFakeTimers();
+    try {
+      const imageLoadFailed = jest.fn();
+      renderComicImage({
+        imageLoadFailed,
+        src: "https://example.com/c1-1.jpg",
+      });
+
+      await jest.advanceTimersByTimeAsync(IMAGE_LOAD_TIMEOUT_MS);
+
+      expect(imageLoadFailed).toHaveBeenCalledWith(0, "image");
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });
 

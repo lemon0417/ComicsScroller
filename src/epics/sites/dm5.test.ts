@@ -1,10 +1,10 @@
-import { fetchImgSrc,imageLoadFailed  } from "@domain/actions/reader";
+import { fetchImgSrc, imageLoadFailed } from "@domain/actions/reader";
 import { loadImgSrc } from "@domain/reducers/comics";
-import { lastValueFrom, of, Subject } from "rxjs";
+import { lastValueFrom, NEVER, of, Subject } from "rxjs";
 import { ajax } from "rxjs/ajax";
 import { toArray } from "rxjs/operators";
 
-import { fetchImgSrcEpic } from "./dm5";
+import { DM5_IMAGE_REQUEST_TIMEOUT_MS, fetchImgSrcEpic } from "./dm5";
 
 jest.mock("rxjs/ajax", () => ({
   ajax: jest.fn(),
@@ -102,5 +102,48 @@ describe("dm5 fetchImgSrcEpic", () => {
         fetchImgSrcEpic(of(fetchImgSrc(0, 0)), state$ as any).pipe(toArray()),
       ),
     ).resolves.toEqual([imageLoadFailed(0, "resolve")]);
+  });
+
+  it("times out stalled chapterfun requests", async () => {
+    jest.useFakeTimers();
+    try {
+      const ajaxMock = ajax as unknown as jest.Mock;
+      ajaxMock.mockReturnValueOnce(NEVER);
+
+      const state$ = {
+        value: {
+          comics: {
+            imageList: {
+              result: [0],
+              entity: {
+                0: {
+                  autoRetryCount: 0,
+                  requestSrc:
+                    "https://www.dm5.com/manhua-demo/chapterfun.ashx?cid=1&page=1",
+                  src: "https://www.dm5.com/manhua-demo/chapterfun.ashx?cid=1&page=1",
+                  loading: true,
+                  loadError: null,
+                  type: "image",
+                  cid: "1",
+                  key: "deadbeef",
+                },
+              },
+            },
+          },
+        },
+      };
+
+      const outputPromise = lastValueFrom(
+        fetchImgSrcEpic(of(fetchImgSrc(0, 0)), state$ as any).pipe(toArray()),
+      );
+
+      await jest.advanceTimersByTimeAsync(DM5_IMAGE_REQUEST_TIMEOUT_MS);
+
+      await expect(outputPromise).resolves.toEqual([
+        imageLoadFailed(0, "resolve"),
+      ]);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });
