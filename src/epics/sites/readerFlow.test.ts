@@ -18,6 +18,7 @@ import { toArray } from "rxjs/operators";
 import {
   createFetchChapterEpic,
   createFetchImgListEpic,
+  getRequestedImageIds,
   normalizeReaderSiteMeta,
 } from "./readerFlow";
 
@@ -53,6 +54,18 @@ describe("readerFlow", () => {
         },
       }).chapterList,
     ).toEqual(["c3", "c2", "c1"]);
+  });
+
+  it("only reads image ids inside the requested range", () => {
+    const result = [0, 1, 2, 3];
+    Object.defineProperty(result, "3", {
+      configurable: true,
+      get() {
+        throw new Error("should not read image ids outside the requested range");
+      },
+    });
+
+    expect(getRequestedImageIds({ begin: 0, end: 1, result })).toEqual([0, 1]);
   });
 
   it("uses the deduped chapter list when hydrating reader metadata", async () => {

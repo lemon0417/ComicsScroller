@@ -94,6 +94,32 @@ export function normalizeReaderSiteMeta(meta: SiteMeta): SiteMeta {
   };
 }
 
+export function getRequestedImageIds(input: {
+  begin: number;
+  end: number;
+  result: number[];
+}) {
+  const { begin, end, result } = input;
+  if (result.length === 0) {
+    return [];
+  }
+
+  const startIndex = Math.max(0, begin);
+  const endIndex = Math.min(result.length - 1, end);
+  if (startIndex > endIndex) {
+    return [];
+  }
+
+  const requestedIds: number[] = [];
+  for (let index = startIndex; index <= endIndex; index += 1) {
+    const imageId = result[index];
+    if (typeof imageId === "number") {
+      requestedIds.push(imageId);
+    }
+  }
+  return requestedIds;
+}
+
 function hasLoadedChapter(input: {
   imageList: {
     result: number[];
@@ -185,11 +211,9 @@ export function createDirectFetchImgSrcEpic(): AppEpic {
       mergeMap((action) => {
         const { begin, end } = action as ReaderRangeAction;
         const { result, entity } = state$.value.comics.imageList;
-        return from(result).pipe(
+        return from(getRequestedImageIds({ begin, end, result })).pipe(
           rxFilter(
             (item) =>
-              item >= begin &&
-              item <= end &&
               entity[item].loading &&
               entity[item].type !== "end",
           ),

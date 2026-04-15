@@ -24,6 +24,7 @@ import {
   createFetchChapterEpic,
   createFetchImgListEpic,
   createUpdateReadEpic,
+  getRequestedImageIds,
 } from "./readerFlow";
 
 type ReaderRangeAction = {
@@ -106,11 +107,9 @@ export const fetchImgSrcEpic: AppEpic = (action$, state$) =>
     mergeMap((action) => {
       const { begin, end } = action as ReaderRangeAction;
       const { result, entity } = state$.value.comics.imageList;
-      return from(result).pipe(
+      return from(getRequestedImageIds({ begin, end, result })).pipe(
         rxFilter((item: number) => {
           return (
-            item >= begin &&
-            item <= end &&
             entity[item].loading &&
             entity[item].type !== "end"
           );
