@@ -1,3 +1,4 @@
+import Button from "@components/Button";
 import { cn } from "@utils/cn";
 
 type NoticeBannerProps = {
@@ -29,9 +30,9 @@ export default function NoticeBanner({
     >
       <span>{message}</span>
       {onDismiss ? (
-        <button type="button" className="ds-link-button" onClick={onDismiss}>
+        <Button variant="link" onClick={onDismiss}>
           關閉
-        </button>
+        </Button>
       ) : null}
     </div>
   );

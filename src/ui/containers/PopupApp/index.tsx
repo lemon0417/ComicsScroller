@@ -1,3 +1,4 @@
+import Button, { ButtonLink } from "@components/Button";
 import Content from "@components/Content";
 import EmptyState from "@components/EmptyState";
 import List from "@components/List";
@@ -79,13 +80,12 @@ function PopupAppComponent(props: PopupAppProps) {
             </h1>
             <span className="ds-count-badge">{displayUpdateCount}</span>
           </div>
-          <button
-            type="button"
-            className="ds-btn-secondary"
+          <Button
+            variant="secondary"
             onClick={() => openManagePage("following")}
           >
             管理
-          </button>
+          </Button>
         </div>
         {extensionReleaseNotice ? (
           <div className="mb-3 rounded-[14px] border border-comic-accent/15 bg-comic-paper/90 px-3 py-3 shadow-subtle">
@@ -93,21 +93,26 @@ function PopupAppComponent(props: PopupAppProps) {
               Comics Scroller {extensionReleaseNotice.latestVersion} 已發布，請手動更新擴充套件。
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                className="ds-btn-secondary"
-                onClick={() =>
+              <ButtonLink
+                variant="secondary"
+                href={
+                  extensionReleaseNotice.instructionsUrl ||
+                  extensionReleaseNotice.releaseUrl
+                }
+                target="_blank"
+                rel="noreferrer"
+                onClick={(event) => {
+                  event.preventDefault();
                   openExternalUrl(
                     extensionReleaseNotice.instructionsUrl ||
                       extensionReleaseNotice.releaseUrl,
-                  )
-                }
+                  );
+                }}
               >
                 更新說明
-              </button>
-              <button
-                type="button"
-                className="ds-link-button"
+              </ButtonLink>
+              <Button
+                variant="link"
                 onClick={() =>
                   requestDismissExtensionReleaseNoticeProp(
                     extensionReleaseNotice.latestVersion,
@@ -115,7 +120,7 @@ function PopupAppComponent(props: PopupAppProps) {
                 }
               >
                 稍後
-              </button>
+              </Button>
             </div>
           </div>
         ) : null}

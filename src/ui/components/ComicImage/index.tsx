@@ -1,3 +1,5 @@
+import Button, { ButtonLink } from "@components/Button";
+import ReaderStateCard from "@components/ReaderStateCard";
 import {
   imageLoadFailed,
   type ReaderImageFailureStage,
@@ -236,34 +238,31 @@ function ComicImage(props: Props) {
       style={pageStyle}
     >
       {isPaywall ? (
-        <div className="reader-paywall-card">
-          <p className="reader-paywall-title">此章節需要付費解鎖</p>
-          <p className="reader-paywall-desc">
-            DM5 未提供免費圖片頁面，請回原站完成購買或閱讀。
-          </p>
+        <ReaderStateCard
+          title="此章節需要付費解鎖"
+          description="DM5 未提供免費圖片頁面，請回原站完成購買或閱讀。"
+        >
           {paywallHref ? (
-            <a
-              className="ds-btn-primary"
+            <ButtonLink
+              variant="primary"
               href={paywallHref}
               target="_blank"
               rel="noreferrer"
             >
               前往 DM5 章節頁
-            </a>
+            </ButtonLink>
           ) : undefined}
-        </div>
+        </ReaderStateCard>
       ) : undefined}
       {isTerminalError ? (
-        <div className="reader-paywall-card">
-          <p className="reader-paywall-title">載入失敗</p>
-          <button
-            type="button"
-            className="ds-btn-secondary"
+        <ReaderStateCard title="載入失敗">
+          <Button
+            variant="secondary"
             onClick={retryHandler}
           >
             重試
-          </button>
-        </div>
+          </Button>
+        </ReaderStateCard>
       ) : undefined}
       {!showImage &&
       !isEnd &&

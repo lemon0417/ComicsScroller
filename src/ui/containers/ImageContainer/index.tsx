@@ -1,5 +1,7 @@
+import Button from "@components/Button";
 import ConnectedComicImage from "@components/ComicImage";
 import Loading from "@components/Loading";
+import ReaderStateCard from "@components/ReaderStateCard";
 import { fetchChapter, updateVisibleImageRange } from "@domain/actions/reader";
 import {
   clearLeadingEvictionRestore,
@@ -415,14 +417,14 @@ function ImageContainer({
     if (chapterLoadStatus === "failed" && requestedChapter) {
       return (
         <main className="reader-canvas reader-loading" aria-label="漫畫頁面">
-          <p className="reader-paywall-title">載入失敗</p>
-          <button
-            type="button"
-            className="ds-btn-secondary"
-            onClick={() => fetchChapterProp(requestedChapter)}
-          >
-            重試
-          </button>
+          <ReaderStateCard title="載入失敗">
+            <Button
+              variant="secondary"
+              onClick={() => fetchChapterProp(requestedChapter)}
+            >
+              重試
+            </Button>
+          </ReaderStateCard>
         </main>
       );
     }

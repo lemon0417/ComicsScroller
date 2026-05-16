@@ -1,3 +1,4 @@
+import Button, { ButtonLink } from "@components/Button";
 import ConfirmDialog from "@components/ConfirmDialog";
 import Content from "@components/Content";
 import EmptyState from "@components/EmptyState";
@@ -585,30 +586,38 @@ function ManageAppComponent(props: ManageAppProps) {
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      className="ds-btn-secondary"
-                      onClick={() =>
+                    <ButtonLink
+                      variant="secondary"
+                      href={
+                        extensionReleaseNotice.instructionsUrl ||
+                        extensionReleaseNotice.releaseUrl
+                      }
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(event) => {
+                        event.preventDefault();
                         openExternalUrl(
                           extensionReleaseNotice.instructionsUrl ||
                             extensionReleaseNotice.releaseUrl,
-                        )
-                      }
+                        );
+                      }}
                     >
                       更新說明
-                    </button>
-                    <button
-                      type="button"
-                      className="ds-link-button"
-                      onClick={() =>
-                        openExternalUrl(extensionReleaseNotice.releaseUrl)
-                      }
+                    </ButtonLink>
+                    <ButtonLink
+                      variant="link"
+                      href={extensionReleaseNotice.releaseUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        openExternalUrl(extensionReleaseNotice.releaseUrl);
+                      }}
                     >
                       GitHub Release
-                    </button>
-                    <button
-                      type="button"
-                      className="ds-link-button"
+                    </ButtonLink>
+                    <Button
+                      variant="link"
                       onClick={() =>
                         requestDismissExtensionReleaseNoticeProp(
                           extensionReleaseNotice.latestVersion,
@@ -616,7 +625,7 @@ function ManageAppComponent(props: ManageAppProps) {
                       }
                     >
                       稍後提醒
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -689,17 +698,15 @@ function ManageAppComponent(props: ManageAppProps) {
                     匯入、匯出或重置資料。
                   </p>
                   <div className="mt-4 flex flex-wrap gap-3">
-                    <button
-                      type="button"
-                      className="ds-btn-primary"
+                    <Button
+                      variant="primary"
                       disabled={busy}
                       onClick={() => fileInputRef.current?.click()}
                     >
                       匯入設定
-                    </button>
-                    <button
-                      type="button"
-                      className="ds-btn-secondary"
+                    </Button>
+                    <Button
+                      variant="secondary"
                       disabled={busy}
                       onClick={() => {
                         setLocalError("");
@@ -708,15 +715,14 @@ function ManageAppComponent(props: ManageAppProps) {
                       }}
                     >
                       匯出設定
-                    </button>
-                    <button
-                      type="button"
-                      className="ds-btn-danger"
+                    </Button>
+                    <Button
+                      variant="danger"
                       disabled={busy}
                       onClick={openResetDialog}
                     >
                       重置資料
-                    </button>
+                    </Button>
                   </div>
                 </section>
               </div>

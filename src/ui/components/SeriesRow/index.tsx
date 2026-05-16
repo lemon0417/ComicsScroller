@@ -1,8 +1,8 @@
+import Button from "@components/Button";
 import BinIcon from "@imgs/bin.svg?react";
 import ArrowIcon from "@imgs/circle-right.svg?react";
 import TagIcon from "@imgs/tag.svg?react";
 import { cn } from "@utils/cn";
-import type { ButtonHTMLAttributes } from "react";
 
 type RowActionIcon = "arrow" | "tag" | "trash";
 type SeriesRowVariant = "popup" | "manage";
@@ -36,29 +36,6 @@ function ActionIcon({ icon }: { icon: RowActionIcon }) {
     return <TagIcon aria-hidden="true" className={className} />;
   }
   return <BinIcon aria-hidden="true" className={className} />;
-}
-
-function ActionButton({
-  variant = "secondary",
-  className,
-  ...rest
-}: ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "secondary" | "danger";
-}) {
-  const variantClass =
-    variant === "primary"
-      ? "ds-btn-primary"
-      : variant === "danger"
-        ? "ds-btn-danger"
-        : "ds-btn-secondary";
-
-  return (
-    <button
-      type="button"
-      className={cn(variantClass, className)}
-      {...rest}
-    />
-  );
 }
 
 export default function SeriesRow({
@@ -117,7 +94,7 @@ export default function SeriesRow({
         {actions.length > 0 ? (
           <div className="series-row__actions">
             {actions.map((action) => (
-              <ActionButton
+              <Button
                 key={action.label}
                 variant={action.variant}
                 disabled={action.disabled}
@@ -127,7 +104,7 @@ export default function SeriesRow({
                 <span className={action.icon ? "ml-1.5" : undefined}>
                   {action.label}
                 </span>
-              </ActionButton>
+              </Button>
             ))}
           </div>
         ) : null}

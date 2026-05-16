@@ -1,3 +1,4 @@
+import Button from "@components/Button";
 import useDialogFocus from "@ui/hooks/useDialogFocus";
 import type { ReactNode } from "react";
 import { useId, useRef } from "react";
@@ -15,16 +16,6 @@ type ConfirmDialogProps = {
   onClose: () => void;
   onConfirm: () => void;
 };
-
-function getConfirmButtonClass(variant: ConfirmDialogProps["confirmVariant"]) {
-  if (variant === "primary") {
-    return "ds-btn-primary";
-  }
-  if (variant === "secondary") {
-    return "ds-btn-secondary";
-  }
-  return "ds-btn-danger";
-}
 
 export default function ConfirmDialog({
   open,
@@ -84,23 +75,21 @@ export default function ConfirmDialog({
           {children ? <div className="ds-dialog__content">{children}</div> : null}
         </div>
         <div className="ds-dialog__footer">
-          <button
+          <Button
             ref={cancelButtonRef}
-            type="button"
-            className="ds-btn-secondary"
+            variant="secondary"
             disabled={busy}
             onClick={onClose}
           >
             {cancelLabel}
-          </button>
-          <button
-            type="button"
-            className={getConfirmButtonClass(confirmVariant)}
+          </Button>
+          <Button
+            variant={confirmVariant}
             disabled={busy}
             onClick={onConfirm}
           >
             {confirmLabel}
-          </button>
+          </Button>
         </div>
       </div>
     </div>,

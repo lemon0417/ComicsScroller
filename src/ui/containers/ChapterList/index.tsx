@@ -1,3 +1,4 @@
+import Button from "@components/Button";
 import { navigateChapter } from "@domain/actions/reader";
 import type {
   ComicsChapterRecord,
@@ -123,14 +124,13 @@ function ChapterList(props: ChapterListProps) {
           >
             章節
           </h2>
-          <button
+          <Button
             ref={closeButtonRef}
-            type="button"
-            className="ds-btn-secondary"
+            variant="secondary"
             onClick={onClose}
           >
             關閉
-          </button>
+          </Button>
         </div>
         <div ref={bodyRefHandler} className="reader-chapter-dialog__body">
           <Grid
