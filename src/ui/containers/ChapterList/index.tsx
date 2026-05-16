@@ -108,7 +108,7 @@ function ChapterList(props: ChapterListProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[1000] flex items-center justify-center bg-[rgba(15,23,42,0.18)] px-4 py-6"
+      className="reader-chapter-backdrop"
       onClick={onClose}
       role="presentation"
     >

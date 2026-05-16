@@ -88,7 +88,7 @@ function PopupAppComponent(props: PopupAppProps) {
           </button>
         </div>
         {extensionReleaseNotice ? (
-          <div className="mb-3 rounded-[14px] border border-comic-accent/15 bg-white/90 px-3 py-3 shadow-sm">
+          <div className="mb-3 rounded-[14px] border border-comic-accent/15 bg-comic-paper/90 px-3 py-3 shadow-subtle">
             <p className="text-[12px] font-medium leading-5 text-comic-ink">
               Comics Scroller {extensionReleaseNotice.latestVersion} 已發布，請手動更新擴充套件。
             </p>

@@ -1,3 +1,10 @@
+const withOpacity = (variable) => ({ opacityValue }) => {
+  if (opacityValue === undefined) {
+    return `rgb(var(${variable}) / 1)`;
+  }
+  return `rgb(var(${variable}) / ${opacityValue})`;
+};
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
@@ -11,36 +18,44 @@ module.exports = {
     extend: {
       colors: {
         comic: {
-          ink: "#0F172A",
-          paper: "#FFFFFF",
-          paper2: "#EEF2F7",
-          accent: "#2563EB",
-          muted: "#64748B",
+          ink: withOpacity("--cs-color-ink"),
+          "ink-soft": withOpacity("--cs-color-ink-soft"),
+          paper: withOpacity("--cs-color-paper"),
+          "paper-soft": withOpacity("--cs-color-paper-soft"),
+          "paper-hover": withOpacity("--cs-color-paper-hover"),
+          "paper-wash": withOpacity("--cs-color-paper-wash"),
+          paper2: withOpacity("--cs-color-paper-wash"),
+          "tab-wash": withOpacity("--cs-color-tab-wash"),
+          line: withOpacity("--cs-color-line"),
+          accent: withOpacity("--cs-color-primary"),
+          "accent-hover": withOpacity("--cs-color-primary-hover"),
+          muted: withOpacity("--cs-color-ink-muted"),
+          "danger-text": withOpacity("--cs-color-danger-text"),
+          "danger-bg": withOpacity("--cs-color-danger-bg"),
+          "danger-bg-hover": withOpacity("--cs-color-danger-bg-hover"),
+          "success-bg": withOpacity("--cs-color-success-bg"),
+          "cover-fallback": withOpacity("--cs-color-cover-fallback"),
         },
         grey: {
-          200: "#eeeeee",
-          300: "#e0e0e0",
-          400: "#bdbdbd",
-          800: "#424242",
-          900: "#212121",
+          200: withOpacity("--cs-color-legacy-grey-200"),
+          300: withOpacity("--cs-color-legacy-grey-300"),
+          400: withOpacity("--cs-color-legacy-grey-400"),
+          800: withOpacity("--cs-color-legacy-grey-800"),
+          900: withOpacity("--cs-color-legacy-grey-900"),
         },
         "deep-orange": {
-          500: "#ff5722",
+          500: withOpacity("--cs-color-legacy-deep-orange-500"),
         },
       },
       boxShadow: {
-        comic: "4px 4px 0 #111827",
-        "comic-sm": "2px 2px 0 #111827",
-        "paper-1":
-          "0 1px 6px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.24)",
-        "paper-2":
-          "0 3px 10px rgba(0, 0, 0, 0.16), 0 3px 10px rgba(0, 0, 0, 0.23)",
-        "paper-3":
-          "0 10px 30px rgba(0, 0, 0, 0.19), 0 6px 10px rgba(0, 0, 0, 0.23)",
-        "paper-4":
-          "0 14px 45px rgba(0, 0, 0, 0.25), 0 10px 18px rgba(0, 0, 0, 0.22)",
-        "paper-5":
-          "0 19px 60px rgba(0, 0, 0, 0.30), 0 15px 20px rgba(0, 0, 0, 0.22)",
+        comic: "var(--cs-shadow-comic)",
+        "comic-sm": "var(--cs-shadow-comic-sm)",
+        subtle: "var(--cs-shadow-subtle)",
+        "paper-1": "var(--cs-shadow-legacy-paper-1)",
+        "paper-2": "var(--cs-shadow-legacy-paper-2)",
+        "paper-3": "var(--cs-shadow-legacy-paper-3)",
+        "paper-4": "var(--cs-shadow-legacy-paper-4)",
+        "paper-5": "var(--cs-shadow-legacy-paper-5)",
       },
       fontFamily: {
         sans: [
@@ -64,7 +79,7 @@ module.exports = {
       },
       backgroundImage: {
         halftone:
-          "radial-gradient(rgba(17, 24, 39, 0.18) 1px, transparent 1px)",
+          "radial-gradient(rgb(var(--cs-color-shadow-ink) / 0.18) 1px, transparent 1px)",
       },
       backgroundSize: {
         halftone: "12px 12px",

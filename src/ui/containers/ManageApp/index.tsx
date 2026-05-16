@@ -574,7 +574,7 @@ function ManageAppComponent(props: ManageAppProps) {
           }`}
         >
             {extensionReleaseNotice ? (
-              <div className="mb-4 rounded-xl border border-comic-accent/15 bg-white px-4 py-3 shadow-sm">
+              <div className="mb-4 rounded-xl border border-comic-accent/15 bg-comic-paper px-4 py-3 shadow-subtle">
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <div className="min-w-0">
                     <p className="text-[14px] font-medium text-comic-ink">
@@ -668,13 +668,13 @@ function ManageAppComponent(props: ManageAppProps) {
                       aria-describedby="manage-debug-log-desc"
                       className={`relative h-7 w-12 shrink-0 rounded-full border transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-comic-accent focus-visible:ring-offset-2 focus-visible:ring-offset-comic-paper ${
                         debugLogEnabled
-                          ? "border-blue-600 bg-blue-600"
+                          ? "border-comic-accent bg-comic-accent"
                           : "border-comic-ink/10 bg-comic-paper2"
                       }`}
                       onClick={handleDebugLogToggle}
                     >
                       <span
-                        className={`absolute left-0 top-1/2 h-5 w-5 -translate-y-1/2 rounded-full bg-white shadow-sm transition-transform duration-150 ${
+                        className={`absolute left-0 top-1/2 h-5 w-5 -translate-y-1/2 rounded-full bg-comic-paper shadow-subtle transition-transform duration-150 ${
                           debugLogEnabled
                             ? "translate-x-[22px]"
                             : "translate-x-[2px]"

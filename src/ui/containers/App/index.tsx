@@ -218,7 +218,7 @@ function App(props: AppProps) {
 
   return (
     <div className="reader-shell">
-      <header className="fixed left-0 top-0 z-[900] flex h-12 w-full items-center justify-between border-b border-comic-ink/10 bg-white/88 px-3 text-comic-ink backdrop-blur-md will-change-[scroll-position] sm:px-4">
+      <header className="fixed left-0 top-0 z-[900] flex h-12 w-full items-center justify-between border-b border-comic-ink/10 bg-comic-paper/88 px-3 text-comic-ink backdrop-blur-md will-change-[scroll-position] sm:px-4">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <IconButton
             ariaLabel="開啟章節列表"
