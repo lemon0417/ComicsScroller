@@ -5,7 +5,10 @@ jest.mock("react-redux", () => ({
   connect: () => (Component: unknown) => Component,
 }));
 
-import ImageContainer from "./index";
+import ImageContainer, {
+  getAppendStartIndex,
+  getLeadingTrimStartIndex,
+} from "./index";
 
 jest.mock("@components/ComicImage", () => ({
   __esModule: true,
@@ -16,10 +19,17 @@ jest.mock("@components/ComicImage", () => ({
 
 type ImageContainerProps = {
   chapterLoadStatus: "failed" | "idle" | "loading" | "ready";
+  clearLeadingEvictionRestore: jest.Mock;
   fetchChapter: jest.Mock;
+  hasPendingChapterGate: boolean;
   imageListKey: string;
   imageResult: number[];
   innerHeight: number;
+  leadingEvictionRestore: {
+    sequence: number;
+    firstRetainedImageId: number;
+    removedScrollHeight: number;
+  } | null;
   requestedChapter: string;
   updateVisibleImageRange: jest.Mock;
 };
@@ -31,10 +41,13 @@ describe("ImageContainer", () => {
     render(
       <TestImageContainer
         chapterLoadStatus="loading"
+        clearLeadingEvictionRestore={jest.fn()}
         fetchChapter={jest.fn()}
+        hasPendingChapterGate={false}
         imageListKey="reader-list"
         imageResult={[]}
         innerHeight={900}
+        leadingEvictionRestore={null}
         requestedChapter="m100"
         updateVisibleImageRange={jest.fn()}
       />,
@@ -50,10 +63,13 @@ describe("ImageContainer", () => {
     render(
       <TestImageContainer
         chapterLoadStatus="ready"
+        clearLeadingEvictionRestore={jest.fn()}
         fetchChapter={jest.fn()}
+        hasPendingChapterGate={false}
         imageListKey="m1"
         imageResult={imageResult}
         innerHeight={900}
+        leadingEvictionRestore={null}
         requestedChapter="m100"
         updateVisibleImageRange={updateVisibleImageRange}
       />,
@@ -74,10 +90,13 @@ describe("ImageContainer", () => {
     render(
       <TestImageContainer
         chapterLoadStatus="failed"
+        clearLeadingEvictionRestore={jest.fn()}
         fetchChapter={fetchChapter}
+        hasPendingChapterGate={false}
         imageListKey="reader-list"
         imageResult={[]}
         innerHeight={900}
+        leadingEvictionRestore={null}
         requestedChapter="m100"
         updateVisibleImageRange={jest.fn()}
       />,
@@ -87,5 +106,114 @@ describe("ImageContainer", () => {
 
     expect(screen.getByText("載入失敗")).toBeInTheDocument();
     expect(fetchChapter).toHaveBeenCalledWith("m100");
+  });
+
+  it("detects leading trims only when the next list is a suffix of the previous list", () => {
+    const removedStartIndex = getLeadingTrimStartIndex(
+      [10, 11, 12, 13],
+      [12, 13, 20, 21],
+    );
+    const unrelatedResetIndex = getLeadingTrimStartIndex(
+      [10, 11, 12, 13],
+      [50, 51, 52],
+    );
+
+    expect(removedStartIndex).toBe(2);
+    expect(unrelatedResetIndex).toBe(-1);
+  });
+
+  it("detects append-only list changes", () => {
+    expect(getAppendStartIndex([10, 11], [10, 11, 12, 13])).toBe(2);
+    expect(getAppendStartIndex([10, 11], [10, 12, 13])).toBe(-1);
+  });
+
+  it("suppresses the automatic visible range expansion after appending images", () => {
+    const updateVisibleImageRange = jest.fn();
+    const commonProps = {
+      chapterLoadStatus: "ready" as const,
+      clearLeadingEvictionRestore: jest.fn(),
+      fetchChapter: jest.fn(),
+      hasPendingChapterGate: false,
+      imageListKey: "m1",
+      innerHeight: 5000,
+      leadingEvictionRestore: null,
+      requestedChapter: "m100",
+      updateVisibleImageRange,
+    };
+
+    const { rerender } = render(
+      <TestImageContainer {...commonProps} imageResult={[0]} />,
+    );
+
+    expect(updateVisibleImageRange).toHaveBeenCalledWith(0, 0);
+    updateVisibleImageRange.mockClear();
+
+    rerender(<TestImageContainer {...commonProps} imageResult={[0, 1, 2]} />);
+
+    expect(updateVisibleImageRange).not.toHaveBeenCalledWith(0, 2);
+  });
+
+  it("compensates scroll position when leading chapters are evicted", () => {
+    const clearLeadingEvictionRestore = jest.fn();
+    const updateVisibleImageRange = jest.fn();
+    const commonProps = {
+      chapterLoadStatus: "ready" as const,
+      clearLeadingEvictionRestore,
+      fetchChapter: jest.fn(),
+      hasPendingChapterGate: false,
+      imageListKey: "m1",
+      innerHeight: 900,
+      requestedChapter: "m100",
+      updateVisibleImageRange,
+    };
+
+    const { container, rerender } = render(
+      <TestImageContainer
+        {...commonProps}
+        imageResult={[10, 11, 12, 13]}
+        leadingEvictionRestore={null}
+      />,
+    );
+    const listElement = container.querySelector(".reader-canvas");
+
+    expect(listElement).toBeInstanceOf(HTMLDivElement);
+    (listElement as HTMLDivElement).scrollTop = 900;
+
+    rerender(
+      <TestImageContainer
+        {...commonProps}
+        imageResult={[12, 13]}
+        leadingEvictionRestore={{
+          sequence: 1,
+          firstRetainedImageId: 12,
+          removedScrollHeight: 264,
+        }}
+      />,
+    );
+
+    expect((listElement as HTMLDivElement).scrollTop).toBe(636);
+    expect(clearLeadingEvictionRestore).toHaveBeenCalledWith(1);
+  });
+
+  it("renders a single tail loading gate without reporting it as visible content", () => {
+    const updateVisibleImageRange = jest.fn();
+
+    render(
+      <TestImageContainer
+        chapterLoadStatus="ready"
+        clearLeadingEvictionRestore={jest.fn()}
+        fetchChapter={jest.fn()}
+        hasPendingChapterGate
+        imageListKey="m1"
+        imageResult={[0]}
+        innerHeight={900}
+        leadingEvictionRestore={null}
+        requestedChapter="m100"
+        updateVisibleImageRange={updateVisibleImageRange}
+      />,
+    );
+
+    expect(screen.getByText("載入中...")).toBeInTheDocument();
+    expect(updateVisibleImageRange).toHaveBeenCalledWith(0, 0);
   });
 });

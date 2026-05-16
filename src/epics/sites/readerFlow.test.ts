@@ -4,8 +4,11 @@ import {
   fetchImgSrc,
 } from "@domain/actions/reader";
 import {
+  clearPendingChapterGate,
   concatImageList,
+  receivePendingChapterGate,
   setChapterLoadFailed,
+  startPendingChapterGate,
   updateCanPreloadPreviousChapter,
   updateChapterLatestIndex,
   updateChapterList,
@@ -173,10 +176,20 @@ describe("readerFlow", () => {
     chapterImages$.complete();
 
     await expect(outputPromise).resolves.toEqual([
-      concatImageList([
-        { chapter: "c1", src: "https://example.com/c1-1.jpg" },
-      ]),
-      updateCanPreloadPreviousChapter(true),
+      startPendingChapterGate({
+        blockingChapterId: "c2",
+        chapterId: "c1",
+        chapterIndex: 1,
+        status: "fetching",
+      }),
+      receivePendingChapterGate({
+        blockingChapterId: "c2",
+        chapterId: "c1",
+        chapterIndex: 1,
+        status: "queued",
+        canPreloadPreviousChapter: true,
+        imgList: [{ chapter: "c1", src: "https://example.com/c1-1.jpg" }],
+      }),
     ]);
   });
 
@@ -245,6 +258,40 @@ describe("readerFlow", () => {
       ]),
       updateCanPreloadPreviousChapter(true),
       fetchImgSrc(0, 6),
+    ]);
+  });
+
+  it("clears an active chapter gate when the preload request yields no payload", async () => {
+    const fetchChapterImages$ = jest.fn(() => of());
+    const epic = createFetchImgListEpic(fetchChapterImages$);
+    const state$ = {
+      value: {
+        comics: {
+          chapterList: ["c2", "c1"],
+          imageList: {
+            result: [0, 1],
+            entity: {
+              0: { chapter: "c2" },
+              1: { chapter: "c2" },
+            },
+          },
+          pendingChapterGate: null,
+        },
+      },
+    };
+
+    const output = await lastValueFrom(
+      epic(of(fetchImgList(1)), state$ as any).pipe(toArray()),
+    );
+
+    expect(output).toEqual([
+      startPendingChapterGate({
+        blockingChapterId: "c2",
+        chapterId: "c1",
+        chapterIndex: 1,
+        status: "fetching",
+      }),
+      clearPendingChapterGate(),
     ]);
   });
 });

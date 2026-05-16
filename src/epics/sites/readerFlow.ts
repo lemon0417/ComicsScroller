@@ -7,11 +7,14 @@ import {
   UPDATE_READ,
 } from "@domain/actions/reader";
 import {
+  clearPendingChapterGate,
   type ComicsChapterRecord,
   type ComicsImageSource,
   concatImageList,
   loadImgSrc,
+  receivePendingChapterGate,
   setChapterLoadFailed,
+  startPendingChapterGate,
   updateCanPreloadPreviousChapter,
   updateChapterLatestIndex,
   updateChapterList,
@@ -40,6 +43,7 @@ import findIndex from "lodash/findIndex";
 import { ofType } from "redux-observable";
 import { EMPTY, from, merge, type Observable, of } from "rxjs";
 import {
+  catchError,
   defaultIfEmpty,
   filter as rxFilter,
   finalize,
@@ -141,6 +145,18 @@ function getCanPreloadPreviousChapter(payload: ReaderChapterPayload) {
   return payload.canPreloadPreviousChapter !== false;
 }
 
+function getTailChapterID(input: {
+  imageList: {
+    result: number[];
+    entity: Record<number, { chapter?: string }>;
+  };
+}) {
+  const tailImageID = input.imageList.result[input.imageList.result.length - 1];
+  return typeof tailImageID === "number"
+    ? input.imageList.entity[tailImageID]?.chapter || ""
+    : "";
+}
+
 function toReaderChapterTitles(
   chapters: SiteMeta["chapters"],
 ): Record<string, ComicsChapterRecord> {
@@ -233,45 +249,90 @@ export function createFetchImgListEpic(
       ofType(FETCH_IMG_LIST),
       mergeMap((action) => {
         const { index } = action as ReaderIndexAction;
-        const { chapterList, imageList } = state$.value.comics;
+        const {
+          chapterList,
+          imageList,
+          pendingChapterGate,
+        } = state$.value.comics;
         const chapterID = String(chapterList[index] || "");
+        const hasExistingImages = imageList.result.length > 0;
+        const blockingChapterId = hasExistingImages
+          ? getTailChapterID({ imageList })
+          : "";
+        const pendingGate =
+          hasExistingImages && blockingChapterId
+            ? {
+                blockingChapterId,
+                chapterId: chapterID,
+                chapterIndex: index,
+                status: "fetching" as const,
+              }
+            : null;
 
         if (
           !chapterID ||
+          pendingChapterGate ||
           inFlightChapterRequests.has(chapterID) ||
           hasLoadedChapter({ imageList, chapterID })
         ) {
           return EMPTY;
         }
 
-        inFlightChapterRequests.add(chapterID);
-        return fetchChapterImages$(chapterID).pipe(
+        const fetchChapterImagesResult$ = fetchChapterImages$(chapterID).pipe(
           mergeMap((payload) => {
-            const latestImageList = state$.value.comics.imageList;
+            const latestComics = state$.value.comics;
+            const latestImageList = latestComics.imageList;
             if (
               hasLoadedChapter({
                 imageList: latestImageList,
                 chapterID: payload.chapterID,
               })
             ) {
-              return [];
+              return pendingGate ? [clearPendingChapterGate()] : [];
             }
 
-            const hasExistingImages = latestImageList.result.length > 0;
-            const actions: EpicAction[] = [
-              concatImageList(payload.imgList),
-              updateCanPreloadPreviousChapter(
-                getCanPreloadPreviousChapter(payload),
-              ),
-            ];
-            if (hasExistingImages) {
+            if (!pendingGate) {
+              const actions: EpicAction[] = [
+                concatImageList(payload.imgList),
+                updateCanPreloadPreviousChapter(
+                  getCanPreloadPreviousChapter(payload),
+                ),
+              ];
+              if (latestImageList.result.length === 0) {
+                return [...actions, fetchImgSrc(0, 6)];
+              }
               return actions;
             }
-            return [...actions, fetchImgSrc(0, 6)];
+
+            return [
+              receivePendingChapterGate({
+                ...pendingGate,
+                canPreloadPreviousChapter:
+                  getCanPreloadPreviousChapter(payload),
+                imgList: payload.imgList,
+                status: "queued",
+              }),
+            ];
           }),
+          catchError(() => (pendingGate ? of(clearPendingChapterGate()) : EMPTY)),
           finalize(() => {
             inFlightChapterRequests.delete(chapterID);
           }),
+        );
+        const fetchChapterImagesWithGate$: Observable<EpicAction> = pendingGate
+          ? fetchChapterImagesResult$.pipe(
+              defaultIfEmpty(clearPendingChapterGate()),
+            )
+          : fetchChapterImagesResult$;
+
+        inFlightChapterRequests.add(chapterID);
+        if (!pendingGate) {
+          return fetchChapterImagesWithGate$;
+        }
+
+        return merge(
+          of(startPendingChapterGate(pendingGate)),
+          fetchChapterImagesWithGate$,
         );
       }),
     );

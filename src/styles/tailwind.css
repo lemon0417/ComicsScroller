@@ -589,6 +589,10 @@
     @apply flex h-full w-full items-center justify-center bg-[linear-gradient(180deg,#F8FAFC_0%,#EEF2F7_100%)] text-center;
   }
 
+  .reader-tail-gate-card {
+    @apply w-full max-w-[min(92vw,720px)] flex-col gap-3;
+  }
+
   .reader-end-marker {
     @apply inline-flex h-[72px] items-center justify-center rounded-full px-5 text-[13px] font-medium tracking-[0.02em];
     border: 1px solid rgba(15, 23, 42, 0.08);

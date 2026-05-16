@@ -64,6 +64,8 @@ yarn build
   - 圖片列表可正常捲動與載入
   - 初次章節 request timeout 或失敗時，會出現全頁 `重試`
   - 單張圖片 request / load timeout 或失敗時，不會永久卡在 loading，會出現 `重試`
+  - 連續向下閱讀多章後，畫面不會因為舊章節回收而明顯跳動
+  - 跨章時，後續章節不會因 placeholder 提前生成而連跳到更後面的章節
 - DM5
   - 一般章節可正常載入圖片
   - 付費章節顯示付費提示，不會卡住 loading

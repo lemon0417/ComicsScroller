@@ -88,6 +88,7 @@ https://www.dm5.com/<DM5_CURL>/chapterfun.ashx
 
 reader 只會對目前可視範圍與 overscan 範圍內、且尚未解析完成的頁面請求 `chapterfun.ashx`。同一張圖在 request 尚未完成前，會做 in-flight dedupe，避免快速捲動時重複打同一頁。
 章節頁 request 與 `chapterfun.ashx` request 都有 timeout 保護。若章節頁 request timeout，reader 會維持空白頁面並顯示全頁 `重試`；若 `chapterfun.ashx` request timeout、解包失敗，或後續圖片載入失敗，reader 會先自動重試 2 次；仍失敗時，該頁改顯示單張 `重試` 按鈕，不需要整頁重新整理。
+下一章 prefetch 抓到 payload 後，不會立刻插進 reader list；只有當前章節首張可閱讀圖片 ready 後，queued 章節才會 append，避免 placeholder 高度讓更後面的章節提早進入可視範圍。
 
 ## 5) 解包與解析
 來源：`src/sites/dm5/chapter.ts`

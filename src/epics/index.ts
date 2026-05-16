@@ -8,6 +8,7 @@ import {
 } from "./getAction";
 import imageRetryEpic from "./imageRetryEpic";
 import navigationEpic from "./navigationEpic";
+import pendingChapterGateEpic from "./pendingChapterGateEpic";
 import readerLocationEpic from "./readerLocationEpic";
 import resizeEpic from "./resizeEpic";
 import scrollEpic from "./scrollEpic";
@@ -17,6 +18,7 @@ const rootEpic = combineEpics(
   fetchChapterEpic,
   fetchImgSrcEpic,
   imageRetryEpic,
+  pendingChapterGateEpic,
   scrollEpic,
   resizeEpic,
   navigationEpic,
