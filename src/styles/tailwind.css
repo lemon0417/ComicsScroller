@@ -750,3 +750,67 @@
     scrollbar-gutter: stable;
   }
 }
+
+@media (max-width: 640px) {
+  .manage-shell {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    padding-top: 0.25rem;
+  }
+
+  .manage-window {
+    border-top-left-radius: 18px;
+    border-top-right-radius: 18px;
+  }
+
+  .manage-topbar {
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+    padding-top: 0.5rem;
+  }
+
+  .ds-tabbar--manage {
+    width: 100%;
+    padding-top: 0.5rem;
+  }
+
+  .ds-tab--manage {
+    min-width: 96px;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .ds-content--manage {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .reader-chapter-backdrop {
+    align-items: stretch;
+    padding: 0.75rem;
+  }
+
+  .reader-chapter-dialog {
+    max-height: calc(100vh - 1.5rem);
+    border-radius: 18px;
+  }
+
+  .reader-chapter-dialog__header {
+    padding: 0.875rem 1rem;
+  }
+
+  .reader-chapter-dialog__body {
+    padding: 1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+  }
+}

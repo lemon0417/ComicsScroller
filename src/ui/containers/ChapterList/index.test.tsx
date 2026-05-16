@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import type { ComponentType } from "react";
+import { type ComponentType, useState } from "react";
 
 jest.mock("react-redux", () => ({
   connect: () => (Component: unknown) => Component,
@@ -54,6 +54,24 @@ function renderChapterList(overrideProps: Partial<ChapterListProps> = {}) {
   };
 }
 
+function ChapterListHarness() {
+  const [show, setShow] = useState(false);
+
+  return (
+    <div>
+      <button type="button" onClick={() => setShow(true)}>
+        開啟章節
+      </button>
+      <TestChapterList
+        {...baseProps}
+        show={show}
+        navigateChapter={jest.fn()}
+        showChapterListHandler={jest.fn(() => setShow(false))}
+      />
+    </div>
+  );
+}
+
 describe("ChapterList", () => {
   it("does not render the dialog while hidden", () => {
     renderChapterList({ show: false });
@@ -68,6 +86,36 @@ describe("ChapterList", () => {
     expect(
       screen.getByRole("button", { name: "關閉" }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "關閉" })).toHaveFocus();
+  });
+
+  it("traps focus within the chapter dialog", () => {
+    renderChapterList();
+
+    const closeButton = screen.getByRole("button", { name: "關閉" });
+    const lastChapterButton = screen.getByRole("button", { name: "第3話" });
+
+    lastChapterButton.focus();
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(closeButton).toHaveFocus();
+
+    closeButton.focus();
+    fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
+    expect(lastChapterButton).toHaveFocus();
+  });
+
+  it("returns focus to the trigger after closing", () => {
+    render(<ChapterListHarness />);
+
+    const trigger = screen.getByRole("button", { name: "開啟章節" });
+    trigger.focus();
+    fireEvent.click(trigger);
+
+    expect(screen.getByRole("button", { name: "關閉" })).toHaveFocus();
+    fireEvent.click(screen.getByRole("button", { name: "關閉" }));
+
+    expect(screen.queryByRole("dialog", { name: "章節" })).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
   });
 
   it("navigates and closes when selecting a chapter", () => {

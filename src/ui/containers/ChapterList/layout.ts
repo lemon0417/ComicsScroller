@@ -180,7 +180,6 @@ export function useChapterGridLayout({
       return;
     }
 
-    closeButtonRef.current?.focus();
     scrollToCurrentChapter();
   }, [show, scrollToCurrentChapter]);
 

@@ -11,6 +11,9 @@ export default function NoticeBanner({
   tone = "info",
   onDismiss,
 }: NoticeBannerProps) {
+  const role = tone === "error" ? "alert" : "status";
+  const live = tone === "error" ? "assertive" : "polite";
+
   return (
     <div
       className={cn(
@@ -21,8 +24,8 @@ export default function NoticeBanner({
             ? "ds-notice-error"
             : "ds-notice-info",
       )}
-      role="status"
-      aria-live="polite"
+      role={role}
+      aria-live={live}
     >
       <span>{message}</span>
       {onDismiss ? (

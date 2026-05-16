@@ -3,7 +3,8 @@ import type {
   ComicsChapterRecord,
   ComicsState,
 } from "@domain/reducers/comics";
-import { type MouseEvent, useCallback, useEffect } from "react";
+import useDialogFocus from "@ui/hooks/useDialogFocus";
+import { type MouseEvent, useCallback, useRef } from "react";
 import { connect } from "react-redux";
 import { Grid } from "react-window";
 
@@ -74,23 +75,18 @@ function ChapterList(props: ChapterListProps) {
     columnCount,
     readSet,
   });
+  const dialogRef = useRef<HTMLDivElement | null>(null);
 
   const onClose = useCallback(() => {
     handleClose(showChapterListHandler);
   }, [handleClose, showChapterListHandler]);
 
-  useEffect(() => {
-    const keydownHandler = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && show) {
-        onClose();
-      }
-    };
-
-    document.addEventListener("keydown", keydownHandler);
-    return () => {
-      document.removeEventListener("keydown", keydownHandler);
-    };
-  }, [onClose, show]);
+  useDialogFocus({
+    open: show,
+    dialogRef,
+    initialFocusRef: closeButtonRef,
+    onEscape: onClose,
+  });
 
   const chapterSelectHandler = useCallback(
     (event: MouseEvent<HTMLButtonElement>) => {
@@ -113,6 +109,7 @@ function ChapterList(props: ChapterListProps) {
       role="presentation"
     >
       <div
+        ref={dialogRef}
         className="reader-chapter-dialog"
         onClick={(event) => event.stopPropagation()}
         role="dialog"
