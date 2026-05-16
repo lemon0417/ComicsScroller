@@ -1,10 +1,13 @@
-import Button, { ButtonLink } from "@components/Button";
+import Button from "@components/Button";
+import CheckboxField from "@components/CheckboxField";
 import ConfirmDialog from "@components/ConfirmDialog";
 import Content from "@components/Content";
 import EmptyState from "@components/EmptyState";
 import LoadingRows from "@components/LoadingRows";
 import NoticeBanner from "@components/NoticeBanner";
+import ReleaseNoticeBanner from "@components/ReleaseNoticeBanner";
 import SeriesRow from "@components/SeriesRow";
+import SwitchField from "@components/SwitchField";
 import Tabs from "@components/Tabs";
 import {
   requestDismissExtensionReleaseNotice,
@@ -24,7 +27,7 @@ import {
 } from "@domain/selectors/popupView";
 import type { PopupFeedEntry } from "@infra/services/library/models";
 import { isDevLogEnabled, setDevLogEnabled } from "@utils/devLog";
-import { openExternalUrl, openReaderPage } from "@utils/navigation";
+import { openReaderPage } from "@utils/navigation";
 import type { ChangeEventHandler } from "react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { connect } from "react-redux";
@@ -435,31 +438,15 @@ function ManageAppComponent(props: ManageAppProps) {
         onClose={closeDialog}
         onConfirm={handleDialogConfirm}
       >
-        <div className="ds-checkbox-row">
-          <input
-            id={clearSeriesDataCheckboxId}
-            type="checkbox"
-            className="ds-checkbox"
-            checked={dialogState.clearSeriesData}
-            aria-describedby={clearSeriesDataDescriptionId}
-            disabled={busy}
-            onChange={handleSubscribeClearSeriesDataChange}
-          />
-          <span className="ds-checkbox-copy">
-            <label
-              htmlFor={clearSeriesDataCheckboxId}
-              className="ds-checkbox-label"
-            >
-              一併清除閱讀紀錄與作品資料
-            </label>
-            <span
-              id={clearSeriesDataDescriptionId}
-              className="ds-checkbox-desc"
-            >
-              勾選後會額外刪除這部作品的閱讀紀錄與快取。此操作無法復原。
-            </span>
-          </span>
-        </div>
+        <CheckboxField
+          id={clearSeriesDataCheckboxId}
+          descriptionId={clearSeriesDataDescriptionId}
+          label="一併清除閱讀紀錄與作品資料"
+          description="勾選後會額外刪除這部作品的閱讀紀錄與快取。此操作無法復原。"
+          checked={dialogState.clearSeriesData}
+          disabled={busy}
+          onChange={handleSubscribeClearSeriesDataChange}
+        />
       </ConfirmDialog>
     );
   };
@@ -575,60 +562,12 @@ function ManageAppComponent(props: ManageAppProps) {
           }`}
         >
             {extensionReleaseNotice ? (
-              <div className="mb-4 rounded-xl border border-comic-accent/15 bg-comic-paper px-4 py-3 shadow-subtle">
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <div className="min-w-0">
-                    <p className="text-[14px] font-medium text-comic-ink">
-                      Comics Scroller {extensionReleaseNotice.latestVersion} 已發布
-                    </p>
-                    <p className="mt-1 text-[12px] leading-5 text-comic-ink/60">
-                      目前需手動更新，請前往更新說明或 GitHub Release 重新安裝最新版。
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <ButtonLink
-                      variant="secondary"
-                      href={
-                        extensionReleaseNotice.instructionsUrl ||
-                        extensionReleaseNotice.releaseUrl
-                      }
-                      target="_blank"
-                      rel="noreferrer"
-                      onClick={(event) => {
-                        event.preventDefault();
-                        openExternalUrl(
-                          extensionReleaseNotice.instructionsUrl ||
-                            extensionReleaseNotice.releaseUrl,
-                        );
-                      }}
-                    >
-                      更新說明
-                    </ButtonLink>
-                    <ButtonLink
-                      variant="link"
-                      href={extensionReleaseNotice.releaseUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      onClick={(event) => {
-                        event.preventDefault();
-                        openExternalUrl(extensionReleaseNotice.releaseUrl);
-                      }}
-                    >
-                      GitHub Release
-                    </ButtonLink>
-                    <Button
-                      variant="link"
-                      onClick={() =>
-                        requestDismissExtensionReleaseNoticeProp(
-                          extensionReleaseNotice.latestVersion,
-                        )
-                      }
-                    >
-                      稍後提醒
-                    </Button>
-                  </div>
-                </div>
-              </div>
+              <ReleaseNoticeBanner
+                className="mb-4"
+                density="manage"
+                notice={extensionReleaseNotice}
+                onDismiss={requestDismissExtensionReleaseNoticeProp}
+              />
             ) : null}
             {localError ? (
               <div className="mb-4">
@@ -653,44 +592,13 @@ function ManageAppComponent(props: ManageAppProps) {
               <div className="manage-settings-stack">
                 <section className="manage-settings-section">
                   <h2 className="manage-section-title">開發者功能</h2>
-                  <div className="manage-setting-row">
-                    <span className="flex min-w-0 flex-col gap-1">
-                      <span
-                        id="manage-debug-log-label"
-                        className="text-[14px] font-medium text-comic-ink"
-                      >
-                        除錯記錄
-                      </span>
-                      <span
-                        id="manage-debug-log-desc"
-                        className="text-[12px] leading-5 text-comic-ink/60"
-                      >
-                        輸出 Redux action 與解析 trace 到 console。
-                      </span>
-                    </span>
-                    <button
-                      id="manage-debug-log-toggle"
-                      type="button"
-                      role="switch"
-                      aria-checked={debugLogEnabled}
-                      aria-labelledby="manage-debug-log-label"
-                      aria-describedby="manage-debug-log-desc"
-                      className={`relative h-7 w-12 shrink-0 rounded-full border transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-comic-accent focus-visible:ring-offset-2 focus-visible:ring-offset-comic-paper ${
-                        debugLogEnabled
-                          ? "border-comic-accent bg-comic-accent"
-                          : "border-comic-ink/10 bg-comic-paper2"
-                      }`}
-                      onClick={handleDebugLogToggle}
-                    >
-                      <span
-                        className={`absolute left-0 top-1/2 h-5 w-5 -translate-y-1/2 rounded-full bg-comic-paper shadow-subtle transition-transform duration-150 ${
-                          debugLogEnabled
-                            ? "translate-x-[22px]"
-                            : "translate-x-[2px]"
-                        }`}
-                      />
-                    </button>
-                  </div>
+                  <SwitchField
+                    id="manage-debug-log-toggle"
+                    label="除錯記錄"
+                    description="輸出 Redux action 與解析 trace 到 console。"
+                    checked={debugLogEnabled}
+                    onToggle={handleDebugLogToggle}
+                  />
                 </section>
                 <section className="manage-settings-section">
                   <h2 className="manage-section-title">資料</h2>
