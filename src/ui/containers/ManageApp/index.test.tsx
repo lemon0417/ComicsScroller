@@ -1,4 +1,4 @@
-import type { PopupFeedEntry } from "@infra/services/library/models";
+import type { PopupFeedEntry } from "@domain/library";
 import {
   fireEvent,
   render,
