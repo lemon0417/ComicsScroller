@@ -12,7 +12,7 @@ function Loading() {
           r="18"
         />
       </svg>
-      <p className="text-sm font-medium text-comic-ink/45">載入中...</p>
+      <p className="text-sm font-medium text-comic-ink/50">載入中...</p>
     </div>
   );
 }

@@ -49,7 +49,7 @@ export default function SwitchField({
         className={`relative h-7 w-12 shrink-0 rounded-full border transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-comic-accent focus-visible:ring-offset-2 focus-visible:ring-offset-comic-paper ${
           checked
             ? "border-comic-accent bg-comic-accent"
-            : "border-comic-ink/10 bg-comic-paper2"
+            : "border-comic-line bg-comic-paper-soft"
         }`}
         onClick={onToggle}
       >

@@ -59,7 +59,7 @@ module.exports = {
       },
       fontFamily: {
         sans: [
-          "Inter",
+          "Avenir Next",
           "ui-sans-serif",
           "system-ui",
           "-apple-system",
@@ -68,7 +68,7 @@ module.exports = {
           "sans-serif",
         ],
         display: [
-          "Inter",
+          "Avenir Next",
           "ui-sans-serif",
           "system-ui",
           "-apple-system",

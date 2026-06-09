@@ -69,14 +69,15 @@ function PopupAppComponent(props: PopupAppProps) {
   const isLoading = hydrationStatus !== "ready";
 
   return (
-    <div className="relative flex h-full w-full flex-col bg-comic-paper2 p-2">
+    <div className="popup-shell">
       <Panel className="popup-panel rounded-[18px]">
         <div className="popup-header">
           <div className="flex min-w-0 items-center gap-2.5">
-            <h1 className="text-[17px] font-semibold tracking-[-0.02em] text-comic-ink">
-              更新
-            </h1>
-            <CountBadge>{displayUpdateCount}</CountBadge>
+            <div className="min-w-0">
+              <h1 className="popup-title">更新</h1>
+              <p className="popup-subtitle">繼續閱讀與新章節</p>
+            </div>
+            <CountBadge aria-label="更新數">{displayUpdateCount}</CountBadge>
           </div>
           <Button
             variant="secondary"
@@ -130,7 +131,7 @@ function PopupAppComponent(props: PopupAppProps) {
                 <section className="popup-section">
                   <SectionTitle title="最新更新" />
                   {updatesTruncated ? (
-                    <p className="mb-2 px-1 text-[11px] text-comic-ink/45">
+                    <p className="mb-2 px-1 text-[11px] text-comic-ink/50">
                       僅顯示最新 {POPUP_UPDATE_LIMIT} 筆，請前往管理頁查看全部。
                     </p>
                   ) : null}

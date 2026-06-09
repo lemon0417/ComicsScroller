@@ -218,7 +218,7 @@ function App(props: AppProps) {
 
   return (
     <div className="reader-shell">
-      <header className="fixed left-0 top-0 z-[900] flex h-12 w-full items-center justify-between border-b border-comic-ink/10 bg-comic-paper/88 px-3 text-comic-ink backdrop-blur-md will-change-[scroll-position] sm:px-4">
+      <header className="reader-toolbar">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <IconButton
             ariaLabel="開啟章節列表"
@@ -227,58 +227,62 @@ function App(props: AppProps) {
             <MenuIcon className="fill-current text-comic-ink/60" />
           </IconButton>
           <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
-            <span className="hidden shrink-0 text-[11px] font-medium text-comic-ink/40 sm:inline">
+            <span className="reader-brand">
               Comic Scroller
             </span>
             <span
-              className="hidden h-4 w-px shrink-0 bg-comic-ink/10 sm:inline-block"
+              className="hidden h-4 w-px shrink-0 bg-comic-line sm:inline-block"
               aria-hidden="true"
             />
             <a
-              className="min-w-0 shrink truncate text-[14px] font-semibold text-comic-ink transition-colors duration-150 hover:text-comic-accent"
+              className="reader-title-link"
               target="_blank"
               rel="noreferrer"
               href={url}
             >{`${title}`}</a>
-            <span className="shrink-0 text-comic-ink/20" aria-hidden="true">
+            <span className="reader-title-divider" aria-hidden="true">
               /
             </span>
-            <span className="min-w-0 shrink truncate text-[13px] text-comic-ink/60">
+            <span className="reader-chapter-title">
               {chapterList.length > 0 ? chapterTitle : "載入中..."}
             </span>
           </div>
-          <div className="ml-3 flex shrink-0 items-center gap-1.5">
-          <IconButton
-            ariaLabel="上一章"
-            disabled={!prevable}
-            onClickHandler={prevable ? prevChapterHandler : undefined}
-          >
-            <PrevIcon className={getNavigationIconClass(prevable)} />
-          </IconButton>
-          <IconButton
-            ariaLabel="下一章"
-            disabled={!nextable}
-            onClickHandler={nextable ? nextChapterHandler : undefined}
-          >
-            <NextIcon className={getNavigationIconClass(nextable)} />
-          </IconButton>
-          <IconButton
-            ariaLabel={subscribe ? "取消追蹤" : "追蹤作品"}
-            disabled={chapterTitle === ""}
-            onClickHandler={chapterTitle !== "" ? subscribeHandler : undefined}
-          >
-            <TagIcon className={getTagIconClass(chapterTitle, subscribe)} />
-          </IconButton>
-          <IconButton
-            ariaLabel={isFullscreen ? "離開全螢幕" : "進入全螢幕"}
-            onClickHandler={fullscreenHandler}
-          >
-            {isFullscreen ? (
-              <FullscreenExitIcon className={getFullscreenIconClass(isFullscreen)} />
-            ) : (
-              <FullscreenEnterIcon className={getFullscreenIconClass(isFullscreen)} />
-            )}
-          </IconButton>
+          <div className="reader-actions">
+            <IconButton
+              ariaLabel="上一章"
+              disabled={!prevable}
+              onClickHandler={prevable ? prevChapterHandler : undefined}
+            >
+              <PrevIcon className={getNavigationIconClass(prevable)} />
+            </IconButton>
+            <IconButton
+              ariaLabel="下一章"
+              disabled={!nextable}
+              onClickHandler={nextable ? nextChapterHandler : undefined}
+            >
+              <NextIcon className={getNavigationIconClass(nextable)} />
+            </IconButton>
+            <IconButton
+              ariaLabel={subscribe ? "取消追蹤" : "追蹤作品"}
+              disabled={chapterTitle === ""}
+              onClickHandler={chapterTitle !== "" ? subscribeHandler : undefined}
+            >
+              <TagIcon className={getTagIconClass(chapterTitle, subscribe)} />
+            </IconButton>
+            <IconButton
+              ariaLabel={isFullscreen ? "離開全螢幕" : "進入全螢幕"}
+              onClickHandler={fullscreenHandler}
+            >
+              {isFullscreen ? (
+                <FullscreenExitIcon
+                  className={getFullscreenIconClass(isFullscreen)}
+                />
+              ) : (
+                <FullscreenEnterIcon
+                  className={getFullscreenIconClass(isFullscreen)}
+                />
+              )}
+            </IconButton>
           </div>
         </div>
       </header>

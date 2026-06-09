@@ -22,7 +22,7 @@ describe("SwitchField", () => {
       "aria-describedby",
       "manage-debug-log-desc",
     );
-    expect(switchControl).toHaveClass("border-comic-ink/10", "bg-comic-paper2");
+    expect(switchControl).toHaveClass("border-comic-line", "bg-comic-paper-soft");
 
     fireEvent.click(switchControl);
 

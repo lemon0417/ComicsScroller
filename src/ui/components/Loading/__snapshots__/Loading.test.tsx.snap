@@ -17,7 +17,7 @@ exports[`Loading snapshot 1`] = `
       />
     </svg>
     <p
-      class="text-sm font-medium text-comic-ink/45"
+      class="text-sm font-medium text-comic-ink/50"
     >
       載入中...
     </p>

@@ -30,11 +30,11 @@ export default function ReleaseNoticeBanner({
     return (
       <div
         className={cn(
-          "rounded-[14px] border border-comic-accent/15 bg-comic-paper/90 px-3 py-3 shadow-subtle",
+          "rounded-[18px] border border-comic-accent/20 bg-comic-paper-soft/80 px-3 py-3 shadow-subtle",
           className,
         )}
       >
-        <p className="text-[12px] font-medium leading-5 text-comic-ink">
+        <p className="text-[12px] font-bold leading-5 text-comic-ink">
           Comics Scroller {notice.latestVersion} 已發布，請手動更新擴充套件。
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -58,13 +58,13 @@ export default function ReleaseNoticeBanner({
   return (
     <div
       className={cn(
-        "rounded-xl border border-comic-accent/15 bg-comic-paper px-4 py-3 shadow-subtle",
+        "rounded-[18px] border border-comic-accent/20 bg-comic-paper-soft/75 px-4 py-3 shadow-subtle",
         className,
       )}
     >
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0">
-          <p className="text-[14px] font-medium text-comic-ink">
+          <p className="text-[14px] font-black text-comic-ink">
             Comics Scroller {notice.latestVersion} 已發布
           </p>
           <p className="mt-1 text-[12px] leading-5 text-comic-ink/60">

@@ -269,7 +269,7 @@ function ComicImage(props: Props) {
       !isPaywall &&
       !isTerminalError ? (
         <div className="reader-page-loading">
-          <span className="text-sm font-medium text-comic-ink/45">
+          <span className="text-sm font-medium text-comic-ink/50">
             Loading...
           </span>
         </div>
