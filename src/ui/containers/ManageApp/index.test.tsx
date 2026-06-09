@@ -1,5 +1,11 @@
 import type { PopupFeedEntry } from "@infra/services/library/models";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import type { ComponentType } from "react";
 
 jest.mock("react-redux", () => ({
@@ -429,6 +435,102 @@ describe("ManageApp", () => {
     const renderedRows = document.querySelectorAll(".series-row");
     expect(renderedRows.length).toBeGreaterThan(0);
     expect(renderedRows.length).toBeLessThan(subscribe.length);
+  });
+
+  it("filters visible rows by title or comics ID", async () => {
+    render(
+      <TestManageApp
+        hydrationStatus="ready"
+        activeAction={null}
+        notice={null}
+        exportUrl=""
+        exportFilename=""
+        update={[]}
+        subscribe={[]}
+        history={[
+          createFeedEntry({
+            key: "history_1",
+            index: 0,
+            title: "One Piece",
+            comicsID: "op-001",
+          }),
+          createFeedEntry({
+            key: "history_2",
+            index: 1,
+            title: "Naruto",
+            comicsID: "nrt-002",
+          }),
+        ]}
+        continueReading={null}
+        requestPopupData={jest.fn()}
+        requestExportConfig={jest.fn()}
+        requestImportConfig={jest.fn()}
+        requestResetConfig={jest.fn()}
+        requestRemoveCard={jest.fn()}
+        clearExportConfig={jest.fn()}
+        clearPopupNotice={jest.fn()}
+      />,
+    );
+
+    const search = screen.getByRole("searchbox", {
+      name: "搜尋作品名或 ID",
+    });
+
+    fireEvent.change(search, { target: { value: "nrt" } });
+
+    await waitFor(() => {
+      expect(screen.getByText("Naruto")).toBeInTheDocument();
+      expect(screen.queryByText("One Piece")).not.toBeInTheDocument();
+      expect(screen.getByText("1 / 2")).toBeInTheDocument();
+    });
+
+    fireEvent.change(search, { target: { value: "op-001" } });
+
+    await waitFor(() => {
+      expect(screen.getByText("One Piece")).toBeInTheDocument();
+      expect(screen.queryByText("Naruto")).not.toBeInTheDocument();
+      expect(screen.getByText("1 / 2")).toBeInTheDocument();
+    });
+  });
+
+  it("shows a search-specific empty state when no rows match", async () => {
+    render(
+      <TestManageApp
+        hydrationStatus="ready"
+        activeAction={null}
+        notice={null}
+        exportUrl=""
+        exportFilename=""
+        update={[]}
+        subscribe={[]}
+        history={[
+          createFeedEntry({
+            key: "history_1",
+            index: 0,
+            title: "One Piece",
+            comicsID: "op-001",
+          }),
+        ]}
+        continueReading={null}
+        requestPopupData={jest.fn()}
+        requestExportConfig={jest.fn()}
+        requestImportConfig={jest.fn()}
+        requestResetConfig={jest.fn()}
+        requestRemoveCard={jest.fn()}
+        clearExportConfig={jest.fn()}
+        clearPopupNotice={jest.fn()}
+      />,
+    );
+
+    fireEvent.change(
+      screen.getByRole("searchbox", { name: "搜尋作品名或 ID" }),
+      { target: { value: "missing" } },
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("找不到符合的作品")).toBeInTheDocument();
+      expect(screen.getByText("0 / 1")).toBeInTheDocument();
+    });
   });
 
   it("renders dismiss update as a secondary action button", () => {

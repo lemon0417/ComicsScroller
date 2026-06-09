@@ -29,7 +29,15 @@ import type { PopupFeedEntry } from "@infra/services/library/models";
 import { isDevLogEnabled, setDevLogEnabled } from "@utils/devLog";
 import { openReaderPage } from "@utils/navigation";
 import type { ChangeEventHandler } from "react";
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { connect } from "react-redux";
 import {
   List,
@@ -87,6 +95,22 @@ function getInitialTab(): ManageTab {
   return TAB_OPTIONS.includes(tab as ManageTab)
     ? (tab as ManageTab)
     : "following";
+}
+
+function normalizeManageSearchQuery(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function matchesManageSearchQuery(
+  item: PopupFeedEntry,
+  normalizedQuery: string,
+) {
+  if (!normalizedQuery) {
+    return true;
+  }
+  return [item.title, item.comicsID].some((value) =>
+    String(value || "").toLowerCase().includes(normalizedQuery),
+  );
 }
 
 function ManageFeedRow({
@@ -242,11 +266,17 @@ function ManageAppComponent(props: ManageAppProps) {
     kind: "closed",
   });
   const [localError, setLocalError] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+  const normalizedSearchQuery = useMemo(
+    () => normalizeManageSearchQuery(deferredSearchQuery),
+    [deferredSearchQuery],
+  );
   const clearSeriesDataCheckboxId = useId();
   const clearSeriesDataDescriptionId = useId();
   const rowHeights = useDynamicRowHeight({
     defaultRowHeight: MANAGE_ROW_DEFAULT_HEIGHT,
-    key: selectedTab,
+    key: `${selectedTab}:${normalizedSearchQuery}`,
   });
   const downloadRef = useRef<HTMLAnchorElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -282,6 +312,22 @@ function ManageAppComponent(props: ManageAppProps) {
     if (selectedTab === "history") return history;
     return [];
   }, [history, selectedTab, subscribe, update]);
+
+  const filteredRows = useMemo(() => {
+    if (!normalizedSearchQuery) {
+      return currentRows;
+    }
+    return currentRows.filter((item) =>
+      matchesManageSearchQuery(item, normalizedSearchQuery),
+    );
+  }, [currentRows, normalizedSearchQuery]);
+
+  const isSearching = normalizedSearchQuery.length > 0;
+
+  const handleSearchQueryChange: ChangeEventHandler<HTMLInputElement> =
+    useCallback((event) => {
+      setSearchQuery(event.currentTarget.value);
+    }, []);
 
   const handleFileChange: ChangeEventHandler<HTMLInputElement> = (event) => {
     const file = event.currentTarget.files?.item(0);
@@ -456,14 +502,14 @@ function ManageAppComponent(props: ManageAppProps) {
       busy,
       selectedTab:
         selectedTab === "data" ? "following" : selectedTab,
-      rows: currentRows,
+      rows: filteredRows,
       onRequestAbandonSeries: openAbandonSeriesDialog,
       onRequestHistoryRemoval: openHistoryRemovalDialog,
       onRemoveCard: requestRemoveCardProp,
     }),
     [
       busy,
-      currentRows,
+      filteredRows,
       openAbandonSeriesDialog,
       openHistoryRemovalDialog,
       requestRemoveCardProp,
@@ -474,6 +520,15 @@ function ManageAppComponent(props: ManageAppProps) {
   const renderRows = () => {
     if (isLoading) {
       return <LoadingRows count={4} />;
+    }
+
+    if (isSearching && currentRows.length > 0 && filteredRows.length === 0) {
+      return (
+        <EmptyState
+          title="找不到符合的作品"
+          description="請用作品名或作品 ID 搜尋。"
+        />
+      );
     }
 
     if (selectedTab === "updates" && currentRows.length === 0) {
@@ -508,7 +563,7 @@ function ManageAppComponent(props: ManageAppProps) {
         className="popup-scrollbar scrollbar-stable"
         overscanCount={MANAGE_LIST_OVERSCAN_COUNT}
         rowComponent={ManageFeedRow}
-        rowCount={currentRows.length}
+        rowCount={filteredRows.length}
         rowHeight={rowHeights}
         rowProps={rowProps}
         style={{
@@ -635,7 +690,27 @@ function ManageAppComponent(props: ManageAppProps) {
                 </section>
               </div>
             ) : (
-              renderRows()
+              <div className="manage-list-layout">
+                <div className="manage-search-row">
+                  <label className="manage-search-field">
+                    <span className="sr-only">搜尋作品名或 ID</span>
+                    <input
+                      type="search"
+                      className="manage-search-input"
+                      placeholder="搜尋作品名或 ID"
+                      value={searchQuery}
+                      disabled={isLoading}
+                      onChange={handleSearchQueryChange}
+                    />
+                  </label>
+                  <div className="manage-search-count" aria-live="polite">
+                    {isSearching
+                      ? `${filteredRows.length} / ${currentRows.length}`
+                      : `${currentRows.length} 筆`}
+                  </div>
+                </div>
+                <div className="manage-list-body">{renderRows()}</div>
+              </div>
             )}
         </Content>
       </div>
