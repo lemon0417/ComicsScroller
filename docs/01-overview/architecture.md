@@ -16,24 +16,32 @@ UI → Actions → Reducers → State → UI
 UI → Actions → Epics → Services → IndexedDB/Network → Actions
 
 ## 持久化模型
-- 共享持久化模型位於 `src/infra/services/library.ts`
-- `library.ts` 是最小公開 facade；場景型呼叫面拆為：
+- 跨 layer 共享的業務 contract 由 domain 擁有：
+  - `src/domain/library/*`：`SiteKey`、`SeriesKey`、popup feed model、reader/background query result model
+  - `src/domain/extensionRelease.ts`：更新提示的 UI contract
+- repository 實作位於 `src/infra/services/library/`
+- 場景型 repository 呼叫面拆為：
   - `library/reader.ts`
   - `library/popup.ts`
   - `library/background.ts`
 - 內部實作拆為：
   - `library/schema.ts`
   - `library/models.ts`
+  - `library/db.ts`
+  - `library/rows.ts`
   - `library/shared.ts`
   - `library/queries.ts`
   - `library/mutations.ts`
   - `library/compat.ts`
   - `library/signal.ts`
-- `library.ts` 只保留通用 config / import-export / signal 類 API
+- `library/models.ts` 只作為 repository 相容 re-export；新程式碼若只需要型別/純 contract，優先從 `@domain/library` 取用
+- `library/db.ts` 管理 IndexedDB open / upgrade、request promise、transaction promise
+- `library/rows.ts` 管理 row composition、ordering、transaction row helpers
+- `library/shared.ts` 保留 repository bootstrap、migration、dump conversion、signal emission 與少量 compatibility re-export
 - reader、popup、background 應優先從各自的場景 facade 取用 repository 函式，不要再全部從單一 barrel 匯入
 - ESLint 會用 `no-restricted-imports` 守住這條邊界，避免新程式碼回頭依賴主 barrel 或 internal module
 - schema constants、row types、normalize helper 屬於 internal detail；若測試或底層模組需要，直接從 `library/schema.ts` 取用
-- query / view model 型別（例如 popup feed、reader query result）集中在 `library/models.ts`
+- query / view model 型別（例如 popup feed、reader query result）集中在 `src/domain/library/*`
 - `LibrarySnapshotV2` 目前只保留給 `compat.ts` 內部流程、匯入匯出與 migration
 - 底層以 IndexedDB 結構化 stores 持久化：
   - `series`
@@ -82,17 +90,21 @@ UI → Actions → Epics → Services → IndexedDB/Network → Actions
 - runtime rows 與 dump rows 必須分開看待；dump 相容性集中在 `compat.ts`
 
 ## 模組位置
+- Domain contracts：`src/domain/library/`、`src/domain/extensionRelease.ts`
 - Actions：`src/domain/actions/`
 - Reducers：`src/domain/reducers/`
 - Epics：`src/epics/`、`src/epics/sites/`、`src/epics/popup/`
 - Sites：`src/sites/`（`registry.ts`、`*/adapter.ts`、`*/meta.ts`、站點純 parser/resolver）
+- Site adapters：`src/sites/*/adapter.ts` 只描述站點 key、baseURL 與 metadata fetcher，不持有 reader epics
 - Site reader orchestration：`src/epics/sites/readerFlow.ts` 提供共用 `fetchChapter / fetchImgList / updateRead` 模板，各站點 epic 只保留章節圖片抓取與站點特例 hook
-- Services：`src/infra/services/`（`storage.ts`、`library.ts`、`library/*.ts`、`background.ts`）
+- Site reader epic registry：`src/epics/sites/registry.ts` 依 reader site 選擇對應 epics，避免 `src/sites/*` 反向依賴 `src/epics/*`
+- Services：`src/infra/services/`（`storage.ts`、`background.ts`、`extensionRelease.ts`、`library/*.ts`）
 - Store：`src/domain/store/`
 - Popup / Manage view state：
   - popup reducer 只保存 popup feed 與 UI 狀態
   - destructive action 的確認流程由 `ManageApp` 內的 custom dialog 控制，不使用原生 `confirm()`
   - `getPopupFeedSnapshot()` 直接回傳 UI 所需的 feed model，不再把 `LibrarySnapshotV2` 放進 popup store
+  - `ManageApp` 採局部 feature-style decomposition：`ManageFeedList`、`ManageDataPanel`、`ManageConfirmDialog`、`tabs`、`search`、`types`
 - Reader view state：
   - `comics` state 保存 canonical `seriesKey`
   - `comics.currentChapterTitle` 是 reducer 維護的衍生欄位，供 header 與 location sync 使用
@@ -113,7 +125,7 @@ UI → Actions → Epics → Services → IndexedDB/Network → Actions
   - 每輪 background refresh 使用固定上限並發與單筆 metadata fetch timeout，避免某個慢站拖住整輪 service worker 工作
 - Repository 測試基礎：
   - 真實 IndexedDB integration tests 使用 `fake-indexeddb`
-  - 測試用 DB reset 與 module cache reset 集中在 `library/shared.ts` 的 test-only helper
+  - 低階 DB helper 位於 `library/db.ts`，row helper 位於 `library/rows.ts`；舊有測試可透過 `library/shared.ts` compatibility re-export 過渡
 
 ## UI 元件命名
 - `ds-*` 只保留共享 primitive，例如 button、tab、notice、empty state、panel、content
@@ -125,11 +137,14 @@ UI → Actions → Epics → Services → IndexedDB/Network → Actions
 ## 重構原則
 - Reducer 必須純函式
 - Side effects 一律放 epics 或 services
+- `src/domain/**` 不得依賴 `src/infra/**`；跨 layer 共用型別或 key 規則應先放進 domain-owned contract
 - 站點 metadata 差異由 `src/sites/*/adapter.ts` 吃掉；`fetchMeta` 對外回傳 `Observable<SiteMeta>`，background 不應保留站點特例分支
 - 站點純 parser / resolver 優先放在 `src/sites/*`，`src/epics/sites/*` 只負責 ajax/action/repository orchestration
+- `src/sites/**` 不得依賴 `src/epics/**`；需要依站點選擇 reader epics 時，從 epic layer 的 registry 組合
 - 若 orchestration 在多個站點重複，優先抽到 `src/epics/sites/readerFlow.ts`，不要在每個站點 epic 複製 `FETCH_CHAPTER / FETCH_IMG_LIST / UPDATE_READ` 樣板
 - 不得在 component、reducer、background 中直接讀寫 IndexedDB 或拼接舊 schema
 - 所有持久化更新優先走 library repository facade；依場景選 `library/reader`、`library/popup`、`library/background`
 - 新增業務流程時，優先使用 query / mutation API，不要新增 `loadLibrary → mutate snapshot → saveLibrary`
 - `compat.ts` 是過渡層，不應成為新功能的預設入口，也不應透過主 facade 再向外擴張
 - Reader store 與 Popup store 只保存頁面需要的 state，不作為跨頁面持久化真實來源
+- 不全面導入 `features/*`；需要降低頁面 container 複雜度時，優先在該 container 目錄內做局部 feature-style module decomposition

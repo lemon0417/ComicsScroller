@@ -7,6 +7,10 @@
 - **持久化唯一來源**：跨頁面主資料以 `IndexedDB` 為準，Redux 僅管理頁面內 state。
 - **同步訊號**：`chrome.storage.local` 僅可用於小型設定與 cross-context signal，不承載主 library 資料。
 - **優先增量更新**：新功能不得優先依賴 `loadLibrary → mutate snapshot → saveLibrary`，應直接新增 repository query / mutation API。
+- **Domain 不依賴 infra**：`src/domain/**` 不得 import `src/infra/**`；跨層共用 contract 放在 `src/domain/*`。
+- **Sites 不依賴 epics**：`src/sites/**` 只放站點 adapter、metadata parser/resolver，不得 import `src/epics/**`。
+- **Repository facade 優先**：UI / epics / background 依場景使用 `library/reader`、`library/popup`、`library/background`，不得直接取用 repository internal modules。
+- **ESLint boundary guard**：新增 layer seam 時必須同步評估 `no-restricted-imports`，避免 domain/infra、sites/epics 邊界回歸。
 
 ## Manifest 與權限
 - 使用 **MV3** service worker：`js/background.js`
