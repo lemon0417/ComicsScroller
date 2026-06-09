@@ -1,4 +1,4 @@
-import { getSiteAdapter } from "@sites/registry";
+import { getSiteReaderEpics } from "@epics/sites/registry";
 import { devLog } from "@utils/devLog";
 import { EMPTY } from "rxjs";
 
@@ -16,14 +16,13 @@ const searchParams = new URLSearchParams(window.location.search);
 const siteParam = searchParams.get("site") || "";
 const chapterParam = searchParams.get("chapter") || "";
 const _site = inferSite(siteParam, chapterParam);
-const adapter = getSiteAdapter(_site);
+const readerEpics = getSiteReaderEpics(_site);
 
 devLog("reader:getAction", {
   siteParam,
   chapterParam,
   inferredSite: _site,
-  hasAdapter: Boolean(adapter),
-  adapterKey: adapter?.key || "",
+  hasReaderEpics: Boolean(readerEpics),
 });
 
 export const {
@@ -31,4 +30,4 @@ export const {
   fetchImgSrcEpic = noopEpic,
   fetchImgListEpic = noopEpic,
   updateReadEpic = noopEpic,
-} = adapter?.epics || {};
+} = readerEpics || {};

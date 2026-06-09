@@ -1,5 +1,4 @@
 import type { ChapterRecord } from "@domain/library";
-import type { AppEpic } from "@epics/types";
 import type { Observable } from "rxjs";
 
 export type FetchMetaOptions = {
@@ -23,10 +22,4 @@ export type SiteAdapter = {
   key: string;
   baseURL: string;
   fetchMeta: SiteMetaFetcher;
-  epics: {
-    fetchChapterEpic: AppEpic;
-    fetchImgSrcEpic: AppEpic;
-    fetchImgListEpic: AppEpic;
-    updateReadEpic: AppEpic;
-  };
 };

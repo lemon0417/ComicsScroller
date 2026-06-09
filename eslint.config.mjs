@@ -53,6 +53,28 @@ export default [
     },
   },
   {
+    files: ['src/sites/**/*.{js,jsx,ts,tsx}'],
+    ignores: [
+      '**/*.test.{js,jsx,ts,tsx}',
+      '**/__tests__/**/*.{js,jsx,ts,tsx}',
+      '**/__mocks__/**/*.{js,jsx,ts,tsx}',
+    ],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@epics/**'],
+              message:
+                'Site modules must stay focused on parsing and metadata. Reader orchestration belongs in @epics/*.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ['**/*.{js,jsx,ts,tsx}'],
     languageOptions: {
       parser: tsParser,
