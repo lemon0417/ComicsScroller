@@ -3,10 +3,13 @@ import {
   REQUEST_REMOVE_CARD,
 } from "@domain/actions/popup";
 import {
+  getPopupUpdateCount,
+  type SiteKey,
+} from "@domain/library";
+import {
   hydratePopupFeed,
   setPopupNotice,
 } from "@domain/reducers/popupState";
-import { getPopupUpdateCount } from "@infra/services/library/models";
 import {
   dismissSeriesUpdate,
   getPopupFeedSnapshot,
@@ -14,7 +17,6 @@ import {
   removeSeriesFromHistory,
   setSeriesSubscription,
 } from "@infra/services/library/popup";
-import type { SiteKey } from "@infra/services/library/schema";
 import { ofType } from "redux-observable";
 import { from, type Observable,of } from "rxjs";
 import { catchError, mergeMap } from "rxjs/operators";

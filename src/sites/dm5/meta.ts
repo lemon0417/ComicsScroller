@@ -1,4 +1,4 @@
-import type { ChapterRecord } from "@infra/services/library/schema";
+import type { ChapterRecord } from "@domain/library";
 import { devLog } from "@utils/devLog";
 import { XMLParser } from "fast-xml-parser";
 import { concat, EMPTY, from, of } from "rxjs";

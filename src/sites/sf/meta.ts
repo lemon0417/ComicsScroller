@@ -1,4 +1,4 @@
-import type { ChapterRecord } from "@infra/services/library/schema";
+import type { ChapterRecord } from "@domain/library";
 import { from } from "rxjs";
 import { map as rxMap } from "rxjs/operators";
 

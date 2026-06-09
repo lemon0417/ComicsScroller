@@ -1,7 +1,7 @@
 import { FETCH_IMAGE_SRC, imageLoadFailed } from "@domain/actions/reader";
+import { buildSeriesKey } from "@domain/library";
 import { loadImgSrc } from "@domain/reducers/comics";
 import { getSeriesCover } from "@infra/services/library/reader";
-import { buildSeriesKey } from "@infra/services/library/schema";
 import {
   parseDm5ChapterPage,
   resolveDm5ImageUrl,

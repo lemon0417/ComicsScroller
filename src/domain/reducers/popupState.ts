@@ -6,9 +6,11 @@ import {
   REQUEST_REMOVE_CARD,
   REQUEST_RESET_CONFIG,
 } from "@domain/actions/popup";
-import type { ExtensionReleaseNotice } from "@infra/services/extensionRelease";
-import type { PopupFeedSnapshot } from "@infra/services/library/models";
-import { createEmptyPopupFeedSnapshot } from "@infra/services/library/models";
+import type { ExtensionReleaseNotice } from "@domain/extensionRelease";
+import {
+  createEmptyPopupFeedSnapshot,
+  type PopupFeedSnapshot,
+} from "@domain/library";
 
 type HydrationSource = "load" | "import" | "reset";
 type ActiveAction = "import" | "export" | "remove" | "reset" | null;

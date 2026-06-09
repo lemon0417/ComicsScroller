@@ -4,8 +4,8 @@ import {
   type ReaderImageFailureStage,
   RETRY_IMAGE,
 } from "@domain/actions/reader";
+import { buildSeriesKey } from "@domain/library";
 import { READER_IMAGE_GAP } from "@domain/utils/readerLayout";
-import { buildSeriesKey } from "@infra/services/library/schema";
 import reduce from "lodash/reduce";
 
 export type ComicsChapterRecord = {

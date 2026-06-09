@@ -7,6 +7,10 @@ import {
   UPDATE_READ,
 } from "@domain/actions/reader";
 import {
+  type SiteKey,
+  uniqueStrings,
+} from "@domain/library";
+import {
   clearPendingChapterGate,
   type ComicsChapterRecord,
   type ComicsImageSource,
@@ -30,10 +34,6 @@ import {
   applyReaderSeriesState,
   applyReadProgress,
 } from "@infra/services/library/reader";
-import {
-  type SiteKey,
-  uniqueStrings,
-} from "@infra/services/library/schema";
 import type {
   FetchMetaOptions,
   SiteMeta,

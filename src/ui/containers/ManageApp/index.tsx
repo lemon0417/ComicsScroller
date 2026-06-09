@@ -17,6 +17,7 @@ import {
   requestRemoveCard,
   requestResetConfig,
 } from "@domain/actions/popup";
+import type { PopupFeedEntry } from "@domain/library";
 import {
   clearExportConfig,
   clearPopupNotice,
@@ -25,7 +26,6 @@ import {
   type PopupViewProps,
   selectPopupView,
 } from "@domain/selectors/popupView";
-import type { PopupFeedEntry } from "@infra/services/library/models";
 import { isDevLogEnabled, setDevLogEnabled } from "@utils/devLog";
 import { openReaderPage } from "@utils/navigation";
 import type { ChangeEventHandler } from "react";

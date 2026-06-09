@@ -7,16 +7,16 @@ import {
   REQUEST_RESET_CONFIG,
 } from "@domain/actions/popup";
 import {
+  getPopupUpdateCount,
+  type PopupFeedSnapshot,
+} from "@domain/library";
+import {
   hydratePopupFeed,
   setExportConfig,
   setExtensionReleaseNotice,
   setPopupNotice,
 } from "@domain/reducers/popupState";
 import { getExtensionReleaseNotice } from "@infra/services/extensionRelease";
-import {
-  getPopupUpdateCount,
-  type PopupFeedSnapshot,
-} from "@infra/services/library/models";
 import {
   exportLibraryArchive,
   getPopupFeedSnapshot,

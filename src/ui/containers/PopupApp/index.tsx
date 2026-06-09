@@ -13,13 +13,13 @@ import {
   requestPopupData,
 } from "@domain/actions/popup";
 import {
+  getPopupUpdateCount,
+  type PopupFeedEntry,
+} from "@domain/library";
+import {
   type PopupViewProps,
   selectPopupView,
 } from "@domain/selectors/popupView";
-import {
-  getPopupUpdateCount,
-  type PopupFeedEntry,
-} from "@infra/services/library/models";
 import { openManagePage, openReaderPage } from "@utils/navigation";
 import { useEffect } from "react";
 import { connect } from "react-redux";

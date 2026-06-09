@@ -1,5 +1,5 @@
-import type { ExtensionReleaseNotice } from "@infra/services/extensionRelease";
-import type { PopupFeedSnapshot } from "@infra/services/library/models";
+import type { ExtensionReleaseNotice } from "@domain/extensionRelease";
+import type { PopupFeedSnapshot } from "@domain/library";
 
 type PopupState = {
   popup: {

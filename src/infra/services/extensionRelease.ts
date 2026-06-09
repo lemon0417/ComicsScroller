@@ -1,3 +1,7 @@
+import type { ExtensionReleaseNotice } from "@domain/extensionRelease";
+
+export type { ExtensionReleaseNotice } from "@domain/extensionRelease";
+
 export const EXTENSION_RELEASE_STATE_KEY = "extensionReleaseState";
 export const EXTENSION_RELEASE_METADATA_FILENAME =
   "latest-release.json";
@@ -11,13 +15,6 @@ export type ExtensionReleaseMetadata = {
   version: string;
   publishedAt: string;
   releaseUrl: string;
-};
-
-export type ExtensionReleaseNotice = {
-  latestVersion: string;
-  releaseUrl: string;
-  instructionsUrl: string;
-  publishedAt: string;
 };
 
 type StoredExtensionReleaseState = {

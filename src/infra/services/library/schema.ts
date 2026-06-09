@@ -1,7 +1,20 @@
+import type {
+  ChapterRecord,
+  LibraryUpdateRecord,
+  SeriesKey,
+  SeriesRecord,
+  SiteKey,
+} from "@domain/library";
+import {
+  buildSeriesKey,
+  parseSeriesKey,
+  SITE_KEYS,
+  uniqueStrings,
+} from "@domain/library";
+
 export const LIBRARY_SCHEMA_VERSION = 2;
 export const LIBRARY_DB_VERSION = 6;
 export const HISTORY_LIMIT = 50;
-export const SITE_KEYS = ["dm5", "sf", "comicbus"] as const;
 export const LIBRARY_SIGNAL_KEY = "librarySignal";
 
 export const LIBRARY_DB_NAME = "comic-scroller-library";
@@ -27,30 +40,13 @@ export const LEGACY_STORAGE_KEYS = [
   "updates",
 ];
 
-export type SiteKey = (typeof SITE_KEYS)[number];
-type SeriesKey = string;
-
-export type ChapterRecord = {
-  title: string;
-  href: string;
-  chapter?: string;
-};
-
-export type SeriesRecord = {
-  site: SiteKey;
-  comicsID: string;
-  title: string;
-  cover: string;
-  url: string;
-  chapterList: string[];
-  chapters: Record<string, ChapterRecord>;
-  lastRead: string;
-  read: string[];
-};
-
-export type LibraryUpdateRecord = {
-  seriesKey: SeriesKey;
-  chapterID: string;
+export { buildSeriesKey, parseSeriesKey, SITE_KEYS, uniqueStrings };
+export type {
+  ChapterRecord,
+  LibraryUpdateRecord,
+  SeriesKey,
+  SeriesRecord,
+  SiteKey,
 };
 
 export type LibrarySnapshotV2 = {
@@ -195,22 +191,6 @@ export function getExtensionVersion() {
   }
 }
 
-export function uniqueStrings(
-  input: unknown,
-  limit = Number.POSITIVE_INFINITY,
-) {
-  const seen = new Set<string>();
-  const result: string[] = [];
-  for (const item of Array.isArray(input) ? input : []) {
-    const value = String(item || "");
-    if (!value || seen.has(value)) continue;
-    seen.add(value);
-    result.push(value);
-    if (result.length >= limit) break;
-  }
-  return result;
-}
-
 export function normalizeChapterRecord(chapter: unknown): ChapterRecord {
   const chapterRecord = toRecord(chapter);
   return {
@@ -224,40 +204,15 @@ export function normalizeChapterRecord(chapter: unknown): ChapterRecord {
   };
 }
 
-function canonicalizeComicsID(site: string, comicsID: string) {
-  const raw = String(comicsID || "");
-  if (!raw) return "";
-  if (site === "dm5") {
-    if (/^\d+$/.test(raw)) {
-      return `m${raw}`;
-    }
-    if (/^m\d+$/i.test(raw)) {
-      return `m${raw.slice(1)}`;
-    }
-    return raw;
-  }
-  return raw;
-}
-
-export function buildSeriesKey(site: string, comicsID: string) {
-  return `${site}:${canonicalizeComicsID(site, comicsID)}`;
-}
-
-export function parseSeriesKey(seriesKey: string) {
-  const [site, ...rest] = String(seriesKey || "").split(":");
-  return {
-    site: site as SiteKey,
-    comicsID: rest.join(":"),
-  };
-}
-
 export function normalizeSeriesRecord(
   site: SiteKey,
   comicsID: string,
   record: unknown,
 ): SeriesRecord {
   const source = toRecord(record);
-  const normalizedComicsID = canonicalizeComicsID(site, comicsID);
+  const normalizedComicsID = parseSeriesKey(
+    buildSeriesKey(site, comicsID),
+  ).comicsID;
   const normalizedChapterList = Array.isArray(source.chapterList)
     ? source.chapterList.map((item: unknown) => String(item || "")).filter(Boolean)
     : [];

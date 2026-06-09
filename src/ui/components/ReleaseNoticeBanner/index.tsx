@@ -1,5 +1,5 @@
 import Button, { ButtonLink } from "@components/Button";
-import type { ExtensionReleaseNotice } from "@infra/services/extensionRelease";
+import type { ExtensionReleaseNotice } from "@domain/extensionRelease";
 import { cn } from "@utils/cn";
 import { openExternalUrl } from "@utils/navigation";
 import type { MouseEvent } from "react";
