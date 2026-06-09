@@ -6,18 +6,21 @@ import {
   META_STORE,
 } from "./schema";
 
+jest.mock("./db", () => ({
+  openLibraryDb: jest.fn(),
+  requestToPromise: jest.fn((value) => Promise.resolve(value)),
+  transactionDone: jest.fn(() => Promise.resolve()),
+}));
+
 jest.mock("./shared", () => {
   const actual = jest.requireActual("./shared");
   return {
     ...actual,
     ensureLibraryReady: jest.fn(() => Promise.resolve()),
-    openLibraryDb: jest.fn(),
-    requestToPromise: jest.fn((value) => Promise.resolve(value)),
-    transactionDone: jest.fn(() => Promise.resolve()),
   };
 });
 
-const shared = jest.requireMock("./shared") as {
+const dbModule = jest.requireMock("./db") as {
   openLibraryDb: jest.Mock;
 };
 
@@ -39,7 +42,7 @@ describe("library compatibility helpers", () => {
     const db = {
       transaction: jest.fn(() => transaction),
     };
-    shared.openLibraryDb.mockResolvedValue(db);
+    dbModule.openLibraryDb.mockResolvedValue(db);
 
     await setLibraryVersion("4.0.99");
 

@@ -15,27 +15,40 @@ import {
   UPDATES_STORE,
 } from "./schema";
 
+jest.mock("./db", () => ({
+  openLibraryDb: jest.fn(),
+  requestToPromise: jest.fn((value) => Promise.resolve(value)),
+  transactionDone: jest.fn(() => Promise.resolve()),
+}));
+
+jest.mock("./rows", () => {
+  const actual = jest.requireActual("./rows");
+  return {
+    ...actual,
+    loadRowsByPositionInTransaction: jest.fn(),
+    loadReadChapterIDsInTransaction: jest.fn(() => Promise.resolve([])),
+    loadSubscriptionKeysByCheckedAtInTransaction: jest.fn(),
+    loadUpdatesInTransaction: jest.fn(),
+  };
+});
+
 jest.mock("./shared", () => {
   const actual = jest.requireActual("./shared");
   return {
     ...actual,
     ensureLibraryReady: jest.fn(() => Promise.resolve()),
-    loadRowsByPositionInTransaction: jest.fn(),
-    loadReadChapterIDsInTransaction: jest.fn(() => Promise.resolve([])),
-    loadSubscriptionKeysByCheckedAtInTransaction: jest.fn(),
-    loadUpdatesInTransaction: jest.fn(),
-    openLibraryDb: jest.fn(),
-    requestToPromise: jest.fn((value) => Promise.resolve(value)),
-    transactionDone: jest.fn(() => Promise.resolve()),
   };
 });
 
-const shared = jest.requireMock("./shared") as {
+const dbModule = jest.requireMock("./db") as {
+  openLibraryDb: jest.Mock;
+};
+
+const rows = jest.requireMock("./rows") as {
   loadRowsByPositionInTransaction: jest.Mock;
   loadReadChapterIDsInTransaction: jest.Mock;
   loadSubscriptionKeysByCheckedAtInTransaction: jest.Mock;
   loadUpdatesInTransaction: jest.Mock;
-  openLibraryDb: jest.Mock;
 };
 
 describe("library queries", () => {
@@ -114,11 +127,11 @@ describe("library queries", () => {
     const db = {
       transaction: jest.fn(() => transaction),
     };
-    shared.openLibraryDb.mockResolvedValue(db);
-    shared.loadRowsByPositionInTransaction
+    dbModule.openLibraryDb.mockResolvedValue(db);
+    rows.loadRowsByPositionInTransaction
       .mockResolvedValueOnce([{ seriesKey: "dm5:m123", position: 0 }])
       .mockResolvedValueOnce([{ seriesKey: "dm5:m123", position: 0 }]);
-    shared.loadUpdatesInTransaction.mockResolvedValue([
+    rows.loadUpdatesInTransaction.mockResolvedValue([
       { seriesKey: "dm5:m123", chapterID: "m2", position: 0 },
     ]);
 
@@ -260,11 +273,11 @@ describe("library queries", () => {
     const db = {
       transaction: jest.fn(() => transaction),
     };
-    shared.openLibraryDb.mockResolvedValue(db);
-    shared.loadRowsByPositionInTransaction
+    dbModule.openLibraryDb.mockResolvedValue(db);
+    rows.loadRowsByPositionInTransaction
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
-    shared.loadUpdatesInTransaction.mockResolvedValue([]);
+    rows.loadUpdatesInTransaction.mockResolvedValue([]);
 
     await expect(getPopupFeedSnapshot()).resolves.toEqual({
       update: [],
@@ -327,11 +340,11 @@ describe("library queries", () => {
     const db = {
       transaction: jest.fn(() => transaction),
     };
-    shared.openLibraryDb.mockResolvedValue(db);
-    shared.loadRowsByPositionInTransaction
+    dbModule.openLibraryDb.mockResolvedValue(db);
+    rows.loadRowsByPositionInTransaction
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
-    shared.loadUpdatesInTransaction.mockResolvedValue([
+    rows.loadUpdatesInTransaction.mockResolvedValue([
       { seriesKey: "dm5:m123", chapterID: "m3", position: 0 },
       { seriesKey: "dm5:m123", chapterID: "m2", position: 1 },
       { seriesKey: "dm5:m123", chapterID: "m1", position: 2 },
@@ -339,7 +352,7 @@ describe("library queries", () => {
 
     const result = await getPopupFeedSnapshot({ updateLimit: 2 });
 
-    expect(shared.loadUpdatesInTransaction).toHaveBeenCalledWith(
+    expect(rows.loadUpdatesInTransaction).toHaveBeenCalledWith(
       stores[UPDATES_STORE],
       3,
     );
@@ -385,13 +398,13 @@ describe("library queries", () => {
     const db = {
       transaction: jest.fn(() => transaction),
     };
-    shared.openLibraryDb.mockResolvedValue(db);
+    dbModule.openLibraryDb.mockResolvedValue(db);
 
     await expect(getSeriesCover("dm5:m123")).resolves.toBe("cover.jpg");
 
     expect(db.transaction).toHaveBeenCalledWith([SERIES_STORE], "readonly");
     expect(seriesStore.get).toHaveBeenCalledWith("dm5:m123");
-    expect(shared.loadReadChapterIDsInTransaction).not.toHaveBeenCalled();
+    expect(rows.loadReadChapterIDsInTransaction).not.toHaveBeenCalled();
   });
 
   it("loads reader series state and subscription in a single query", async () => {
@@ -443,8 +456,8 @@ describe("library queries", () => {
     const db = {
       transaction: jest.fn(() => transaction),
     };
-    shared.openLibraryDb.mockResolvedValue(db);
-    shared.loadReadChapterIDsInTransaction.mockResolvedValue(["m1"]);
+    dbModule.openLibraryDb.mockResolvedValue(db);
+    rows.loadReadChapterIDsInTransaction.mockResolvedValue(["m1"]);
 
     const result = await getReaderSeriesState("dm5:m123");
 
@@ -502,7 +515,7 @@ describe("library queries", () => {
     const db = {
       transaction: jest.fn(() => transaction),
     };
-    shared.openLibraryDb.mockResolvedValue(db);
+    dbModule.openLibraryDb.mockResolvedValue(db);
 
     await expect(getReaderSeriesSyncState("dm5:m123")).resolves.toEqual({
       exists: true,
@@ -514,7 +527,7 @@ describe("library queries", () => {
     );
     expect(chaptersStore.index).not.toHaveBeenCalled();
     expect(readsStore.index).not.toHaveBeenCalled();
-    expect(shared.loadReadChapterIDsInTransaction).not.toHaveBeenCalled();
+    expect(rows.loadReadChapterIDsInTransaction).not.toHaveBeenCalled();
   });
 
   it("loads background series state with chapter ids only", async () => {
@@ -556,7 +569,7 @@ describe("library queries", () => {
     const db = {
       transaction: jest.fn(() => transaction),
     };
-    shared.openLibraryDb.mockResolvedValue(db);
+    dbModule.openLibraryDb.mockResolvedValue(db);
 
     await expect(getBackgroundSeriesState("dm5:m123")).resolves.toEqual({
       url: "https://www.dm5.com/m123/",
@@ -586,8 +599,8 @@ describe("library queries", () => {
     const db = {
       transaction: jest.fn(() => transaction),
     };
-    shared.openLibraryDb.mockResolvedValue(db);
-    shared.loadSubscriptionKeysByCheckedAtInTransaction.mockResolvedValue([
+    dbModule.openLibraryDb.mockResolvedValue(db);
+    rows.loadSubscriptionKeysByCheckedAtInTransaction.mockResolvedValue([
       "dm5:m-oldest",
       "dm5:m-middle",
     ]);

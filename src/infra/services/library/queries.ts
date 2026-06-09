@@ -1,4 +1,9 @@
 import {
+  openLibraryDb,
+  requestToPromise,
+  transactionDone,
+} from "./db";
+import {
   type BackgroundSeriesState,
   createEmptyPopupFeedSnapshot,
   type PopupFeedCategory,
@@ -7,6 +12,14 @@ import {
   type ReaderSeriesState,
   type ReaderSeriesSyncState,
 } from "./models";
+import {
+  composeSeriesRecord,
+  loadReadChapterIDsInTransaction,
+  loadRowsByPositionInTransaction,
+  loadSubscriptionKeysByCheckedAtInTransaction,
+  loadUpdatesInTransaction,
+  resolveSeriesKeyInput,
+} from "./rows";
 import {
   type ChapterRow,
   CHAPTERS_STORE,
@@ -21,17 +34,8 @@ import {
   UPDATES_STORE,
 } from "./schema";
 import {
-  composeSeriesRecord,
   ensureLibraryReady,
-  loadReadChapterIDsInTransaction,
-  loadRowsByPositionInTransaction,
-  loadSubscriptionKeysByCheckedAtInTransaction,
-  loadUpdatesInTransaction,
-  openLibraryDb,
   readSeriesSnapshotByKey,
-  requestToPromise,
-  resolveSeriesKeyInput,
-  transactionDone,
 } from "./shared";
 
 const SITE_LABELS: Record<string, string> = {

@@ -1,3 +1,8 @@
+import {
+  openLibraryDb,
+  requestToPromise,
+  transactionDone,
+} from "./db";
 import type { LibraryDumpV2 } from "./schema";
 import {
   createEmptyLibrarySnapshot,
@@ -14,13 +19,10 @@ import {
   migrateCompactDump,
   migrateDump,
   migrateLibrary,
-  openLibraryDb,
   persistSnapshot,
   readRowsFromDb,
-  requestToPromise,
   rowsToSnapshot,
   snapshotToCompactDumpRows,
-  transactionDone,
 } from "./shared";
 
 async function loadLibrary() {

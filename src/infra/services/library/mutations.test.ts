@@ -14,39 +14,55 @@ import {
   UPDATES_STORE,
 } from "./schema";
 
-jest.mock("./shared", () => {
-  const actual = jest.requireActual("./shared");
+jest.mock("./db", () => ({
+  openLibraryDb: jest.fn(),
+  requestToPromise: jest.fn((value) => Promise.resolve(value)),
+  transactionDone: jest.fn(() => Promise.resolve()),
+}));
+
+jest.mock("./rows", () => {
+  const actual = jest.requireActual("./rows");
   return {
     ...actual,
     addReadChapterInTransaction: jest.fn(() => Promise.resolve()),
-    emitLibrarySignal: jest.fn(() => Promise.resolve()),
-    ensureLibraryReady: jest.fn(() => Promise.resolve()),
     loadReadChapterIDsInTransaction: jest.fn(() => Promise.resolve([])),
     loadOrderedSeriesKeysInTransaction: jest.fn(),
     loadOrderedSubscriptionRowsInTransaction: jest.fn(),
     loadRowsByPositionInTransaction: jest.fn(),
     loadUpdatesInTransaction: jest.fn(),
-    openLibraryDb: jest.fn(),
-    requestToPromise: jest.fn((value) => Promise.resolve(value)),
     replaceSeriesChaptersInTransaction: jest.fn(() => Promise.resolve()),
     replaceSeriesReadsInTransaction: jest.fn(() => Promise.resolve()),
-    transactionDone: jest.fn(() => Promise.resolve()),
     writeOrderedSeriesKeysInTransaction: jest.fn(() => Promise.resolve()),
   };
 });
 
-const shared = jest.requireMock("./shared") as {
+jest.mock("./shared", () => {
+  const actual = jest.requireActual("./shared");
+  return {
+    ...actual,
+    emitLibrarySignal: jest.fn(() => Promise.resolve()),
+    ensureLibraryReady: jest.fn(() => Promise.resolve()),
+  };
+});
+
+const dbModule = jest.requireMock("./db") as {
+  openLibraryDb: jest.Mock;
+};
+
+const rows = jest.requireMock("./rows") as {
   addReadChapterInTransaction: jest.Mock;
-  emitLibrarySignal: jest.Mock;
   loadReadChapterIDsInTransaction: jest.Mock;
   loadOrderedSeriesKeysInTransaction: jest.Mock;
   loadOrderedSubscriptionRowsInTransaction: jest.Mock;
   loadRowsByPositionInTransaction: jest.Mock;
   loadUpdatesInTransaction: jest.Mock;
-  openLibraryDb: jest.Mock;
   replaceSeriesChaptersInTransaction: jest.Mock;
   replaceSeriesReadsInTransaction: jest.Mock;
   writeOrderedSeriesKeysInTransaction: jest.Mock;
+};
+
+const shared = jest.requireMock("./shared") as {
+  emitLibrarySignal: jest.Mock;
 };
 
 describe("library mutations", () => {
@@ -102,8 +118,8 @@ describe("library mutations", () => {
     const db = {
       transaction: jest.fn(() => transaction),
     };
-    shared.openLibraryDb.mockResolvedValue(db);
-    shared.loadUpdatesInTransaction.mockResolvedValue([
+    dbModule.openLibraryDb.mockResolvedValue(db);
+    rows.loadUpdatesInTransaction.mockResolvedValue([
       { seriesKey: "dm5:m123", chapterID: "m2", position: 0 },
       { seriesKey: "sf:77", chapterID: "c7", position: 1 },
     ]);
@@ -118,7 +134,7 @@ describe("library mutations", () => {
     expect(readsStore.delete).toHaveBeenCalledWith(["dm5:m123", "m2"]);
     expect(subscriptionsStore.delete).toHaveBeenCalledWith("dm5:m123");
     expect(historyStore.delete).toHaveBeenCalledWith("dm5:m123");
-    expect(shared.writeOrderedSeriesKeysInTransaction).not.toHaveBeenCalled();
+    expect(rows.writeOrderedSeriesKeysInTransaction).not.toHaveBeenCalled();
     expect(updatesStore.delete).toHaveBeenCalledWith(["dm5:m123", "m2"]);
     expect(shared.emitLibrarySignal).toHaveBeenCalledWith(
       "removeSeries",
@@ -172,15 +188,15 @@ describe("library mutations", () => {
       transaction: jest.fn(() => transaction),
     };
 
-    shared.openLibraryDb.mockResolvedValue(db);
-    shared.loadOrderedSubscriptionRowsInTransaction.mockResolvedValue([
+    dbModule.openLibraryDb.mockResolvedValue(db);
+    rows.loadOrderedSubscriptionRowsInTransaction.mockResolvedValue([
       { seriesKey: "dm5:m123", position: 0, checkedAt: 200 },
       { seriesKey: "sf:77", position: 1, checkedAt: 100 },
     ]);
 
     await expect(toggleSeriesSubscriptionByKey("dm5:m123")).resolves.toBe(false);
     expect(subscriptionsStore.delete).toHaveBeenCalledWith("dm5:m123");
-    expect(shared.writeOrderedSeriesKeysInTransaction).not.toHaveBeenCalled();
+    expect(rows.writeOrderedSeriesKeysInTransaction).not.toHaveBeenCalled();
     expect(shared.emitLibrarySignal).toHaveBeenCalledWith(
       "toggleSubscription",
       ["subscriptions"],
@@ -189,8 +205,8 @@ describe("library mutations", () => {
 
     jest.clearAllMocks();
 
-    shared.openLibraryDb.mockResolvedValue(db);
-    shared.loadOrderedSubscriptionRowsInTransaction.mockResolvedValue([
+    dbModule.openLibraryDb.mockResolvedValue(db);
+    rows.loadOrderedSubscriptionRowsInTransaction.mockResolvedValue([
       { seriesKey: "sf:77", position: 0, checkedAt: 100 },
     ]);
 
@@ -200,7 +216,7 @@ describe("library mutations", () => {
       position: -1,
       checkedAt: 0,
     });
-    expect(shared.writeOrderedSeriesKeysInTransaction).not.toHaveBeenCalled();
+    expect(rows.writeOrderedSeriesKeysInTransaction).not.toHaveBeenCalled();
   });
 
   it("removes only history entries without touching series data", async () => {
@@ -262,8 +278,8 @@ describe("library mutations", () => {
       transaction: jest.fn(() => transaction),
     };
 
-    shared.openLibraryDb.mockResolvedValue(db);
-    shared.loadRowsByPositionInTransaction.mockResolvedValue([
+    dbModule.openLibraryDb.mockResolvedValue(db);
+    rows.loadRowsByPositionInTransaction.mockResolvedValue([
       { seriesKey: "dm5:m123", position: 0 },
       { seriesKey: "sf:77", position: 1 },
     ]);
@@ -271,7 +287,7 @@ describe("library mutations", () => {
     await removeSeriesFromHistory("dm5", "m123");
 
     expect(historyStore.delete).toHaveBeenCalledWith("dm5:m123");
-    expect(shared.writeOrderedSeriesKeysInTransaction).not.toHaveBeenCalled();
+    expect(rows.writeOrderedSeriesKeysInTransaction).not.toHaveBeenCalled();
     expect(shared.emitLibrarySignal).toHaveBeenCalledWith(
       "removeHistory",
       ["history"],
@@ -329,15 +345,15 @@ describe("library mutations", () => {
       transaction: jest.fn(() => transaction),
     };
 
-    shared.openLibraryDb.mockResolvedValue(db);
-    shared.loadReadChapterIDsInTransaction.mockResolvedValue(["m1"]);
+    dbModule.openLibraryDb.mockResolvedValue(db);
+    rows.loadReadChapterIDsInTransaction.mockResolvedValue(["m1"]);
     const result = await applyReadProgress("dm5", "m123", "m2");
 
     expect(db.transaction).toHaveBeenCalledWith(
       [SERIES_STORE, CHAPTERS_STORE, READS_STORE, UPDATES_STORE],
       "readwrite",
     );
-    expect(shared.replaceSeriesChaptersInTransaction).not.toHaveBeenCalled();
+    expect(rows.replaceSeriesChaptersInTransaction).not.toHaveBeenCalled();
     expect(seriesStore.put).toHaveBeenCalledWith(
       expect.objectContaining({
         seriesKey: "dm5:m123",
@@ -350,7 +366,7 @@ describe("library mutations", () => {
       }),
     );
     expect(updatesStore.delete).toHaveBeenCalledWith(["dm5:m123", "m2"]);
-    expect(shared.addReadChapterInTransaction).toHaveBeenCalledWith(
+    expect(rows.addReadChapterInTransaction).toHaveBeenCalledWith(
       readsStore,
       "dm5:m123",
       "m2",
@@ -425,8 +441,8 @@ describe("library mutations", () => {
       transaction: jest.fn(() => transaction),
     };
 
-    shared.openLibraryDb.mockResolvedValue(db);
-    shared.loadUpdatesInTransaction.mockResolvedValue([
+    dbModule.openLibraryDb.mockResolvedValue(db);
+    rows.loadUpdatesInTransaction.mockResolvedValue([
       { seriesKey: "sf:77", chapterID: "c9", position: 0 },
       { seriesKey: "dm5:m123", chapterID: "m2", position: 1 },
     ]);
@@ -457,12 +473,12 @@ describe("library mutations", () => {
       ["m3", "m2"],
     );
 
-    expect(shared.loadReadChapterIDsInTransaction).toHaveBeenCalledWith(
+    expect(rows.loadReadChapterIDsInTransaction).toHaveBeenCalledWith(
       readsStore,
       "dm5:m123",
     );
     expect(chaptersStore.index).not.toHaveBeenCalled();
-    expect(shared.replaceSeriesChaptersInTransaction).toHaveBeenCalled();
+    expect(rows.replaceSeriesChaptersInTransaction).toHaveBeenCalled();
     expect(updatesStore.delete).toHaveBeenNthCalledWith(1, ["dm5:m123", "m3"]);
     expect(updatesStore.delete).toHaveBeenNthCalledWith(2, ["dm5:m123", "m2"]);
     expect(updatesStore.put).toHaveBeenNthCalledWith(
@@ -547,8 +563,8 @@ describe("library mutations", () => {
       transaction: jest.fn(() => transaction),
     };
 
-    shared.openLibraryDb.mockResolvedValue(db);
-    shared.loadUpdatesInTransaction
+    dbModule.openLibraryDb.mockResolvedValue(db);
+    rows.loadUpdatesInTransaction
       .mockResolvedValueOnce([
         { seriesKey: "sf:77", chapterID: "c9", position: -1023 },
         { seriesKey: "dm5:m123", chapterID: "m1", position: -1022 },

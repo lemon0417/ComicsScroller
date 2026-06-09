@@ -1,4 +1,21 @@
 import {
+  openLibraryDb,
+  requestToPromise,
+  transactionDone,
+} from "./db";
+import {
+  addReadChapterInTransaction,
+  composeSeriesRecord,
+  createSeriesRow,
+  loadOrderedSubscriptionRowsInTransaction,
+  loadReadChapterIDsInTransaction,
+  loadRowsByPositionInTransaction,
+  loadUpdatesInTransaction,
+  replaceSeriesChaptersInTransaction,
+  replaceSeriesReadsInTransaction,
+  writeOrderedSeriesKeysInTransaction,
+} from "./rows";
+import {
   buildSeriesKey,
   type ChapterRow,
   CHAPTERS_STORE,
@@ -17,21 +34,8 @@ import {
   UPDATES_STORE,
 } from "./schema";
 import {
-  addReadChapterInTransaction,
-  composeSeriesRecord,
-  createSeriesRow,
   emitLibrarySignal,
   ensureLibraryReady,
-  loadOrderedSubscriptionRowsInTransaction,
-  loadReadChapterIDsInTransaction,
-  loadRowsByPositionInTransaction,
-  loadUpdatesInTransaction,
-  openLibraryDb,
-  replaceSeriesChaptersInTransaction,
-  replaceSeriesReadsInTransaction,
-  requestToPromise,
-  transactionDone,
-  writeOrderedSeriesKeysInTransaction,
 } from "./shared";
 
 async function persistSeriesRecordState(
