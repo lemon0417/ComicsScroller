@@ -158,6 +158,49 @@ describe("ManageApp", () => {
     expect(requestExportConfig).toHaveBeenCalled();
   });
 
+  it("toggles and runs Chrome library sync from the options tab", () => {
+    const requestSetLibrarySyncEnabled = jest.fn();
+    const requestSyncLibraryNow = jest.fn();
+
+    render(
+      <TestManageApp
+        hydrationStatus="ready"
+        activeAction={null}
+        notice={null}
+        exportUrl=""
+        exportFilename=""
+        librarySyncStatus={{
+          enabled: true,
+          available: true,
+          lastSyncedAt: 1710000000000,
+          remoteUpdatedAt: 1710000000000,
+          payloadBytes: 4096,
+          quotaBytes: 92160,
+        }}
+        update={[]}
+        subscribe={[]}
+        history={[]}
+        continueReading={null}
+        requestPopupData={jest.fn()}
+        requestExportConfig={jest.fn()}
+        requestImportConfig={jest.fn()}
+        requestResetConfig={jest.fn()}
+        requestRemoveCard={jest.fn()}
+        requestSetLibrarySyncEnabled={requestSetLibrarySyncEnabled}
+        requestSyncLibraryNow={requestSyncLibraryNow}
+        clearExportConfig={jest.fn()}
+        clearPopupNotice={jest.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "選項" }));
+    fireEvent.click(screen.getByRole("switch", { name: "同步精簡書庫" }));
+    fireEvent.click(screen.getByRole("button", { name: "立即同步" }));
+
+    expect(requestSetLibrarySyncEnabled).toHaveBeenCalledWith(false);
+    expect(requestSyncLibraryNow).toHaveBeenCalled();
+  });
+
   it("renders the extension release notice and supports dismissing it", () => {
     const requestDismissExtensionReleaseNotice = jest.fn();
 

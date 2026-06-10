@@ -53,6 +53,13 @@
 - `匯入設定`：支援 legacy JSON、dump v1、dump v2、plain JSON bytes、`.json.gz`
 - `匯出設定`：匯出 compact dump v2，預設下載為 `.json.gz`
 - `重置資料`：清空整個 library，需經過確認 dialog
+- `同步精簡書庫`：
+  - 使用 `chrome.storage.sync` 同步追蹤、閱讀紀錄、更新狀態與必要章節摘要
+  - 不同步完整章節快取；IndexedDB 仍是本機 source of truth
+  - 啟用時會先 pull / merge 遠端，再 push 合併結果
+  - 匯入、重置、移除、棄坑、略過更新後，若同步已啟用，會嘗試 push 最新精簡資料
+  - 同步大小、上次同步、遠端更新時間與錯誤顯示在選項頁
+  - 超過 Chrome Sync 配額時顯示錯誤，使用者仍可改用完整匯出備份
 
 ## 確認 dialog 規則
 - `紀錄 -> 移除`
@@ -70,6 +77,7 @@
 - unsubscribe-only：`setSeriesSubscription(site, comicsID, false)` + `dismissSeriesUpdate(site, comicsID)`
 - series-level cleanup：`removeSeriesCascade(site, comicsID)`
 - full reset：`resetLibrary()`
+- lightweight sync：`setLibrarySyncEnabled(enabled)`、`syncLibraryNow()`、`pushLibrarySyncIfEnabled()`
 
 ## 實作約束
 - 維持既有資料流：UI → reducers → epics → store

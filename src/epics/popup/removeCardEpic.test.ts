@@ -1,6 +1,7 @@
 import { requestRemoveCard } from "@domain/actions/popup";
 import {
   hydratePopupFeed,
+  setLibrarySyncStatus,
   setPopupNotice,
 } from "@domain/reducers/popupState";
 import type { PopupFeedSnapshot } from "@infra/services/library/models";
@@ -15,6 +16,7 @@ jest.mock("@infra/services/library/popup", () => {
     ...actual,
     dismissSeriesUpdate: jest.fn(),
     getPopupFeedSnapshot: jest.fn(),
+    pushLibrarySyncIfEnabled: jest.fn(),
     removeSeriesFromHistory: jest.fn(),
     removeSeriesCascade: jest.fn(),
     setSeriesSubscription: jest.fn(),
@@ -24,10 +26,17 @@ jest.mock("@infra/services/library/popup", () => {
 const {
   dismissSeriesUpdate,
   getPopupFeedSnapshot,
+  pushLibrarySyncIfEnabled,
   removeSeriesCascade,
   removeSeriesFromHistory,
   setSeriesSubscription,
 } = jest.requireMock("@infra/services/library/popup");
+
+const librarySyncStatus = {
+  enabled: false,
+  available: true,
+  quotaBytes: 92160,
+};
 
 describe("removeCardEpic", () => {
   beforeEach(() => {
@@ -35,6 +44,7 @@ describe("removeCardEpic", () => {
     (global as any).chrome = {
       action: { setBadgeText: jest.fn() },
     };
+    pushLibrarySyncIfEnabled.mockResolvedValue(librarySyncStatus);
   });
 
   it("removes update card and rehydrates popup state", async () => {
@@ -88,7 +98,10 @@ describe("removeCardEpic", () => {
       ).pipe(toArray()),
     );
 
-    expect(actions).toEqual([hydratePopupFeed(nextFeed, "load")]);
+    expect(actions).toEqual([
+      hydratePopupFeed(nextFeed, "load"),
+      setLibrarySyncStatus(librarySyncStatus),
+    ]);
     expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: "1" });
   });
 
@@ -142,7 +155,10 @@ describe("removeCardEpic", () => {
 
     expect(removeSeriesFromHistory).toHaveBeenCalledWith("dm5", "c1");
     expect(removeSeriesCascade).not.toHaveBeenCalled();
-    expect(actions).toEqual([hydratePopupFeed(nextFeed, "load")]);
+    expect(actions).toEqual([
+      hydratePopupFeed(nextFeed, "load"),
+      setLibrarySyncStatus(librarySyncStatus),
+    ]);
     expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: "" });
   });
 

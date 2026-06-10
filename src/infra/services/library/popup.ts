@@ -21,3 +21,12 @@ export {
 export {
   subscribeToLibrarySignal,
 } from "./signal";
+export {
+  getLibrarySyncStatus,
+  pushLibrarySyncIfEnabled,
+  setLibrarySyncEnabled,
+  syncLibraryNow,
+} from "./sync";
+export type {
+  LibrarySyncStatus,
+} from "@domain/library";

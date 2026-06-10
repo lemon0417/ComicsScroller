@@ -4,11 +4,14 @@ import {
   requestImportConfig,
   requestPopupData,
   requestResetConfig,
+  requestSetLibrarySyncEnabled,
+  requestSyncLibraryNow,
 } from "@domain/actions/popup";
 import {
   hydratePopupFeed,
   setExportConfig,
   setExtensionReleaseNotice,
+  setLibrarySyncStatus,
   setPopupNotice,
 } from "@domain/reducers/popupState";
 import type { ExtensionReleaseNotice } from "@infra/services/extensionRelease";
@@ -21,17 +24,28 @@ import { toArray } from "rxjs/operators";
 
 jest.mock("@infra/services/library/popup", () => ({
   exportLibraryArchive: jest.fn(),
+  getLibrarySyncStatus: jest.fn(),
   getPopupFeedSnapshot: jest.fn(),
   importLibraryDump: jest.fn(),
+  pushLibrarySyncIfEnabled: jest.fn(),
   resetLibrary: jest.fn(),
+  setLibrarySyncEnabled: jest.fn(),
+  syncLibraryNow: jest.fn(),
 }));
 jest.mock("@infra/services/extensionRelease", () => ({
   getExtensionReleaseNotice: jest.fn(),
 }));
 
-const { exportLibraryArchive, getPopupFeedSnapshot, importLibraryDump, resetLibrary } = jest.requireMock(
-  "@infra/services/library/popup",
-);
+const {
+  exportLibraryArchive,
+  getLibrarySyncStatus,
+  getPopupFeedSnapshot,
+  importLibraryDump,
+  pushLibrarySyncIfEnabled,
+  resetLibrary,
+  setLibrarySyncEnabled,
+  syncLibraryNow,
+} = jest.requireMock("@infra/services/library/popup");
 const { getExtensionReleaseNotice } = jest.requireMock(
   "@infra/services/extensionRelease",
 );
@@ -41,6 +55,11 @@ const emptyFeed: PopupFeedSnapshot = {
   subscribe: [],
   history: [],
   continueReading: null,
+};
+const librarySyncStatus = {
+  enabled: false,
+  available: true,
+  quotaBytes: 92160,
 };
 
 function buildFeedEntry(
@@ -85,6 +104,10 @@ describe("popupConfigEpic", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     getExtensionReleaseNotice.mockResolvedValue(null);
+    getLibrarySyncStatus.mockResolvedValue(librarySyncStatus);
+    pushLibrarySyncIfEnabled.mockResolvedValue(librarySyncStatus);
+    setLibrarySyncEnabled.mockResolvedValue(librarySyncStatus);
+    syncLibraryNow.mockResolvedValue(librarySyncStatus);
     (global as any).chrome = {
       action: { setBadgeText: jest.fn() },
     };
@@ -115,6 +138,7 @@ describe("popupConfigEpic", () => {
     expect(actions).toEqual([
       hydratePopupFeed(emptyFeed, "load"),
       setExtensionReleaseNotice(null),
+      setLibrarySyncStatus(librarySyncStatus),
     ]);
     expect(getPopupFeedSnapshot).toHaveBeenCalledWith({});
   });
@@ -130,6 +154,7 @@ describe("popupConfigEpic", () => {
     expect(actions).toEqual([
       hydratePopupFeed(emptyFeed, "load"),
       setExtensionReleaseNotice(releaseNotice),
+      setLibrarySyncStatus(librarySyncStatus),
     ]);
     expect(getPopupFeedSnapshot).toHaveBeenCalledWith({
       updateLimit: POPUP_UPDATE_LIMIT,
@@ -146,6 +171,7 @@ describe("popupConfigEpic", () => {
     expect(actions).toEqual([
       hydratePopupFeed(emptyFeed, "load"),
       setExtensionReleaseNotice(null),
+      setLibrarySyncStatus(librarySyncStatus),
     ]);
     expect(getPopupFeedSnapshot).toHaveBeenCalledWith({});
   });
@@ -175,7 +201,9 @@ describe("popupConfigEpic", () => {
     expect(actions).toEqual([
       hydratePopupFeed(data, "import"),
       setExtensionReleaseNotice(null),
+      setLibrarySyncStatus(librarySyncStatus),
     ]);
+    expect(pushLibrarySyncIfEnabled).toHaveBeenCalled();
     expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: "61" });
   });
 
@@ -190,7 +218,9 @@ describe("popupConfigEpic", () => {
     expect(actions).toEqual([
       hydratePopupFeed(emptyFeed, "reset"),
       setExtensionReleaseNotice(null),
+      setLibrarySyncStatus(librarySyncStatus),
     ]);
+    expect(pushLibrarySyncIfEnabled).toHaveBeenCalled();
     expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: "" });
   });
 
@@ -206,6 +236,37 @@ describe("popupConfigEpic", () => {
 
     expect(actions).toEqual([
       setExportConfig("blob:mock", "comic-scroller-library.json.gz"),
+    ]);
+  });
+
+  it("enables library sync and reloads manage data", async () => {
+    getPopupFeedSnapshot.mockResolvedValue(emptyFeed);
+
+    const actions = await lastValueFrom(
+      popupConfigEpic(of(requestSetLibrarySyncEnabled(true))).pipe(toArray()),
+    );
+
+    expect(setLibrarySyncEnabled).toHaveBeenCalledWith(true);
+    expect(syncLibraryNow).toHaveBeenCalled();
+    expect(actions).toEqual([
+      hydratePopupFeed(emptyFeed, "load"),
+      setExtensionReleaseNotice(null),
+      setLibrarySyncStatus(librarySyncStatus),
+    ]);
+  });
+
+  it("runs a manual library sync and reloads manage data", async () => {
+    getPopupFeedSnapshot.mockResolvedValue(emptyFeed);
+
+    const actions = await lastValueFrom(
+      popupConfigEpic(of(requestSyncLibraryNow())).pipe(toArray()),
+    );
+
+    expect(syncLibraryNow).toHaveBeenCalled();
+    expect(actions).toEqual([
+      hydratePopupFeed(emptyFeed, "load"),
+      setExtensionReleaseNotice(null),
+      setLibrarySyncStatus(librarySyncStatus),
     ]);
   });
 

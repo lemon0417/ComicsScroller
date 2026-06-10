@@ -81,6 +81,28 @@
   - compact dump v2
   - gzip archive
 
+## Chrome Sync v1
+- runtime source of truth 仍是 IndexedDB；Chrome Sync 只是一層跨裝置同步輔助，不取代 repository
+- 啟用狀態與本機同步 metadata 存在 `chrome.storage.local.librarySyncState`
+- 遠端資料存在 `chrome.storage.sync`：
+  - `librarySyncManifest`
+  - `librarySyncChunk:*`
+- 同步 payload 使用 `comic-scroller-library-sync` v1
+- payload 只同步精簡書庫資料：
+  - 作品主資料：`site / comicsID / title / cover / url / lastRead`
+  - `subscriptions`
+  - `history`
+  - `updates`
+  - `read`
+  - latest / lastRead / read / update 需要的章節摘要
+- 不同步完整章節快取、背景輪詢 `checkedAt`、debug 設定或 reader UI state
+- 寫入前會檢查安全配額上限 `90KB`；超過時只回寫同步錯誤，不覆蓋本機 IndexedDB
+- 同步 merge 是 best-effort：
+  - 遠端 manifest 較新時，作品 title / cover / url / lastRead 優先採遠端
+  - 本機與遠端的作品、已讀、追蹤、紀錄、更新會合併去重，避免資料遺失
+  - v1 不維護 tombstone，因此跨裝置刪除可能被另一端舊資料合併回來
+- 完整備份仍應使用匯出 `.json.gz`；Chrome Sync v1 只處理「無腦同步」的輕量場景
+
 ## 快取與回收
 - `chapters` 是 cache，不是每部作品都必須永久保存
 - `reads` 是 runtime query 用的結構化資料，不是 dump-only 欄位

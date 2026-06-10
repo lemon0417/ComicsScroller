@@ -16,6 +16,9 @@ export const REQUEST_RESET_CONFIG = "REQUEST_RESET_CONFIG";
 export const REQUEST_EXPORT_CONFIG = "REQUEST_EXPORT_CONFIG";
 export const REQUEST_DISMISS_EXTENSION_RELEASE_NOTICE =
   "REQUEST_DISMISS_EXTENSION_RELEASE_NOTICE";
+export const REQUEST_SET_LIBRARY_SYNC_ENABLED =
+  "REQUEST_SET_LIBRARY_SYNC_ENABLED";
+export const REQUEST_SYNC_LIBRARY_NOW = "REQUEST_SYNC_LIBRARY_NOW";
 export const POPUP_UPDATE_LIMIT = 50;
 
 export function requestRemoveCard(payload: RemoveCardPayload) {
@@ -36,6 +39,17 @@ export function requestResetConfig() {
 
 export function requestExportConfig() {
   return { type: REQUEST_EXPORT_CONFIG };
+}
+
+export function requestSetLibrarySyncEnabled(enabled: boolean) {
+  return {
+    type: REQUEST_SET_LIBRARY_SYNC_ENABLED,
+    payload: { enabled },
+  };
+}
+
+export function requestSyncLibraryNow() {
+  return { type: REQUEST_SYNC_LIBRARY_NOW };
 }
 
 export function requestDismissExtensionReleaseNotice(latestVersion: string) {

@@ -3,6 +3,7 @@
 ## 核心資料流
 - `IndexedDB` 是主要持久化資料來源（source of truth）
 - `chrome.storage.local` 只承擔跨 context 同步 signal 與小型設定
+- `chrome.storage.sync` 只允許作為輕量 library sync payload，不得取代 IndexedDB 或承載完整章節快取
 - UI 觸發 action
 - reducers 同步更新頁面內 state（session / view state）
 - epics 處理非同步（網路 / storage / location sync）並回寫 action
@@ -34,6 +35,7 @@ UI → Actions → Epics → Services → IndexedDB/Network → Actions
   - `library/mutations.ts`
   - `library/compat.ts`
   - `library/signal.ts`
+  - `library/sync.ts`
 - `library/models.ts` 只作為 repository 相容 re-export；新程式碼若只需要型別/純 contract，優先從 `@domain/library` 取用
 - `library/db.ts` 管理 IndexedDB open / upgrade、request promise、transaction promise
 - `library/rows.ts` 管理 row composition、ordering、transaction row helpers
@@ -60,9 +62,15 @@ UI → Actions → Epics → Services → IndexedDB/Network → Actions
 - `subscriptions` row 保留 UI 顯示排序 `position`，並額外記錄背景輪詢用的 `checkedAt`
 - `updates` row 只保留 `seriesKey / chapterID / position`；runtime 不再保存 `createdAt`
 - `chrome.storage.local.librarySignal` 用於跨 context 通知資料已變更
+- `chrome.storage.sync` 的 library sync payload 由 `library/sync.ts` 管理：
+  - 遠端 manifest / chunks 存在 sync storage
+  - 本機啟用狀態與同步 metadata 存在 local storage
+  - payload 使用精簡 dump-like rows，但不等同於完整 backup dump
+  - merge 後仍回寫 IndexedDB，讓 repository 繼續作為唯一 runtime source of truth
 - repository 目前分成兩層 API：
   - config / import-export：`resetLibrary`、`exportLibraryDump`、`importLibraryDump`、`setLibraryVersion`
   - query / mutation：`getPopupFeedSnapshot`、`getSeriesSnapshot`、`listSubscriptionKeys`、`applyReaderSeriesState`、`applyReadProgress`、`setSeriesSubscription*`、`dismissSeriesUpdate`、`removeSeriesFromHistory`、`removeSeriesCascade`
+  - sync：`getLibrarySyncStatus`、`setLibrarySyncEnabled`、`syncLibraryNow`、`pushLibrarySyncIfEnabled`
 - `getPopupFeedSnapshot()` 直接由 IndexedDB rows 組出 popup feed model，不再先組整包 `LibrarySnapshotV2`
 - popup / manage 的刪除語意分三層：
   - `history -> 移除`：只刪 `history` row，不刪作品、章節、追蹤或更新
@@ -104,6 +112,7 @@ UI → Actions → Epics → Services → IndexedDB/Network → Actions
   - popup reducer 只保存 popup feed 與 UI 狀態
   - destructive action 的確認流程由 `ManageApp` 內的 custom dialog 控制，不使用原生 `confirm()`
   - `getPopupFeedSnapshot()` 直接回傳 UI 所需的 feed model，不再把 `LibrarySnapshotV2` 放進 popup store
+  - Chrome Sync 狀態只保存為 view state；同步副作用由 popup epics 呼叫 `library/popup` facade
   - `ManageApp` 採局部 feature-style decomposition：`ManageFeedList`、`ManageDataPanel`、`ManageConfirmDialog`、`tabs`、`search`、`types`
 - Reader view state：
   - `comics` state 保存 canonical `seriesKey`
@@ -148,3 +157,4 @@ UI → Actions → Epics → Services → IndexedDB/Network → Actions
 - `compat.ts` 是過渡層，不應成為新功能的預設入口，也不應透過主 facade 再向外擴張
 - Reader store 與 Popup store 只保存頁面需要的 state，不作為跨頁面持久化真實來源
 - 不全面導入 `features/*`；需要降低頁面 container 複雜度時，優先在該 container 目錄內做局部 feature-style module decomposition
+- 跨裝置同步屬於 repository seam，不應為 v1 同步另開全域 feature-based 架構；若後續加入 tombstone / conflict resolution，再評估是否拆出更完整的 feature module

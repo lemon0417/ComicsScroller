@@ -9,8 +9,13 @@ import {
   requestPopupData,
   requestRemoveCard,
   requestResetConfig,
+  requestSetLibrarySyncEnabled,
+  requestSyncLibraryNow,
 } from "@domain/actions/popup";
-import type { PopupFeedEntry } from "@domain/library";
+import {
+  createEmptyLibrarySyncStatus,
+  type PopupFeedEntry,
+} from "@domain/library";
 import {
   clearExportConfig,
   clearPopupNotice,
@@ -57,6 +62,8 @@ type ManageAppProps = PopupViewProps & {
   requestPopupData: typeof requestPopupData;
   requestRemoveCard: typeof requestRemoveCard;
   requestResetConfig: typeof requestResetConfig;
+  requestSetLibrarySyncEnabled: typeof requestSetLibrarySyncEnabled;
+  requestSyncLibraryNow: typeof requestSyncLibraryNow;
 };
 
 function ManageAppComponent(props: ManageAppProps) {
@@ -67,6 +74,7 @@ function ManageAppComponent(props: ManageAppProps) {
     extensionReleaseNotice,
     exportUrl,
     exportFilename,
+    librarySyncStatus = createEmptyLibrarySyncStatus(),
     update,
     subscribe,
     history,
@@ -76,6 +84,9 @@ function ManageAppComponent(props: ManageAppProps) {
     requestExportConfig: requestExportConfigProp,
     requestImportConfig: requestImportConfigProp,
     requestResetConfig: requestResetConfigProp,
+    requestSetLibrarySyncEnabled:
+      requestSetLibrarySyncEnabledProp = () => undefined,
+    requestSyncLibraryNow: requestSyncLibraryNowProp = () => undefined,
     requestRemoveCard: requestRemoveCardProp,
     clearExportConfig: clearExportConfigProp,
     clearPopupNotice: clearPopupNoticeProp,
@@ -273,6 +284,21 @@ function ManageAppComponent(props: ManageAppProps) {
     requestExportConfigProp();
   }, [clearPopupNoticeProp, requestExportConfigProp]);
 
+  const handleSyncToggle = useCallback(
+    (enabled: boolean) => {
+      setLocalError("");
+      clearPopupNoticeProp();
+      requestSetLibrarySyncEnabledProp(enabled);
+    },
+    [clearPopupNoticeProp, requestSetLibrarySyncEnabledProp],
+  );
+
+  const handleSyncNow = useCallback(() => {
+    setLocalError("");
+    clearPopupNoticeProp();
+    requestSyncLibraryNowProp();
+  }, [clearPopupNoticeProp, requestSyncLibraryNowProp]);
+
   return (
     <div className="manage-shell">
       <div className="manage-window">
@@ -340,10 +366,13 @@ function ManageAppComponent(props: ManageAppProps) {
             <ManageDataPanel
               busy={busy}
               debugLogEnabled={debugLogEnabled}
+              librarySyncStatus={librarySyncStatus}
               onDebugLogToggle={handleDebugLogToggle}
               onExportClick={handleExportClick}
               onImportClick={() => fileInputRef.current?.click()}
               onResetClick={openResetDialog}
+              onSyncNow={handleSyncNow}
+              onSyncToggle={handleSyncToggle}
             />
           ) : (
             <div className="manage-list-layout">
@@ -414,4 +443,6 @@ export default connect(selectPopupView, {
   requestPopupData,
   requestRemoveCard,
   requestResetConfig,
+  requestSetLibrarySyncEnabled,
+  requestSyncLibraryNow,
 })(ManageAppComponent);

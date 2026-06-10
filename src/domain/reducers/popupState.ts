@@ -5,15 +5,19 @@ import {
   REQUEST_POPUP_DATA,
   REQUEST_REMOVE_CARD,
   REQUEST_RESET_CONFIG,
+  REQUEST_SET_LIBRARY_SYNC_ENABLED,
+  REQUEST_SYNC_LIBRARY_NOW,
 } from "@domain/actions/popup";
 import type { ExtensionReleaseNotice } from "@domain/extensionRelease";
 import {
+  createEmptyLibrarySyncStatus,
   createEmptyPopupFeedSnapshot,
+  type LibrarySyncStatus,
   type PopupFeedSnapshot,
 } from "@domain/library";
 
 type HydrationSource = "load" | "import" | "reset";
-type ActiveAction = "import" | "export" | "remove" | "reset" | null;
+type ActiveAction = "import" | "export" | "remove" | "reset" | "sync" | null;
 
 type Notice = {
   tone: "success" | "error" | "info";
@@ -28,6 +32,7 @@ export type PopupState = {
   notice: Notice | null;
   exportUrl: string;
   exportFilename: string;
+  librarySyncStatus: LibrarySyncStatus;
 };
 
 type Action = {
@@ -39,12 +44,14 @@ type Action = {
   message?: string;
   notice?: ExtensionReleaseNotice | null;
   tone?: Notice["tone"];
+  syncStatus?: LibrarySyncStatus;
 };
 
 const HYDRATE_POPUP_FEED = "HYDRATE_POPUP_FEED";
 const SET_EXPORT_CONFIG = "SET_EXPORT_CONFIG";
 const SET_POPUP_NOTICE = "SET_POPUP_NOTICE";
 const SET_EXTENSION_RELEASE_NOTICE = "SET_EXTENSION_RELEASE_NOTICE";
+const SET_LIBRARY_SYNC_STATUS = "SET_LIBRARY_SYNC_STATUS";
 const CLEAR_EXPORT_CONFIG = "CLEAR_EXPORT_CONFIG";
 const CLEAR_POPUP_NOTICE = "CLEAR_POPUP_NOTICE";
 
@@ -56,6 +63,7 @@ const initialState: PopupState = {
   notice: null,
   exportUrl: "",
   exportFilename: "",
+  librarySyncStatus: createEmptyLibrarySyncStatus(),
 };
 
 function resolveSuccessNotice(source?: HydrationSource) {
@@ -102,6 +110,13 @@ export default function popupState(
         activeAction: "export",
         notice: null,
       };
+    case REQUEST_SET_LIBRARY_SYNC_ENABLED:
+    case REQUEST_SYNC_LIBRARY_NOW:
+      return {
+        ...state,
+        activeAction: "sync",
+        notice: null,
+      };
     case REQUEST_REMOVE_CARD:
     case REQUEST_DISMISS_EXTENSION_RELEASE_NOTICE:
       return {
@@ -122,6 +137,13 @@ export default function popupState(
       return {
         ...state,
         extensionReleaseNotice: (action.notice as ExtensionReleaseNotice) || null,
+      };
+    case SET_LIBRARY_SYNC_STATUS:
+      return {
+        ...state,
+        activeAction: state.activeAction === "sync" ? null : state.activeAction,
+        librarySyncStatus:
+          action.syncStatus || createEmptyLibrarySyncStatus(),
       };
     case SET_EXPORT_CONFIG:
       return {
@@ -184,6 +206,10 @@ export function setExtensionReleaseNotice(
   notice: ExtensionReleaseNotice | null,
 ) {
   return { type: SET_EXTENSION_RELEASE_NOTICE, notice };
+}
+
+export function setLibrarySyncStatus(syncStatus: LibrarySyncStatus) {
+  return { type: SET_LIBRARY_SYNC_STATUS, syncStatus };
 }
 
 export function clearExportConfig() {

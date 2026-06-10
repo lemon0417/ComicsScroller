@@ -10,8 +10,10 @@ import { createEpicMiddleware } from "redux-observable";
 
 jest.mock("@infra/services/library/popup", () => ({
   getPopupFeedSnapshot: jest.fn(),
+  getLibrarySyncStatus: jest.fn(),
   exportLibraryDump: jest.fn(),
   importLibraryDump: jest.fn(),
+  pushLibrarySyncIfEnabled: jest.fn(),
   removeSeriesFromHistory: jest.fn(),
   resetLibrary: jest.fn(),
   subscribeToLibrarySignal: jest.fn(() => () => undefined),
@@ -22,11 +24,24 @@ jest.mock("@infra/services/extensionRelease", () => ({
   subscribeToExtensionReleaseState: jest.fn(() => () => undefined),
 }));
 
-const { getPopupFeedSnapshot, removeSeriesFromHistory } = jest.requireMock(
-  "@infra/services/library/popup",
-);
+const {
+  getLibrarySyncStatus,
+  getPopupFeedSnapshot,
+  removeSeriesFromHistory,
+} = jest.requireMock("@infra/services/library/popup");
+
+const librarySyncStatus = {
+  enabled: false,
+  available: true,
+  quotaBytes: 92160,
+};
 
 describe("popup state integration", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    getLibrarySyncStatus.mockResolvedValue(librarySyncStatus);
+  });
+
   it("hydrates popup state from storage", async () => {
     const data = {
       update: [
@@ -154,6 +169,7 @@ describe("popup state integration", () => {
         notice: null,
         exportUrl: "",
         exportFilename: "",
+        librarySyncStatus,
       },
     });
   });
@@ -192,6 +208,10 @@ describe("popup state integration", () => {
         },
         exportUrl: "",
         exportFilename: "",
+        librarySyncStatus: {
+          enabled: false,
+          available: false,
+        },
       },
     });
   });
@@ -237,6 +257,10 @@ describe("popup state integration", () => {
         },
         exportUrl: "",
         exportFilename: "",
+        librarySyncStatus: {
+          enabled: false,
+          available: false,
+        },
       },
     });
   });

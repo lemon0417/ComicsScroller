@@ -8,17 +8,19 @@ import {
 } from "@domain/library";
 import {
   hydratePopupFeed,
+  setLibrarySyncStatus,
   setPopupNotice,
 } from "@domain/reducers/popupState";
 import {
   dismissSeriesUpdate,
   getPopupFeedSnapshot,
+  pushLibrarySyncIfEnabled,
   removeSeriesCascade,
   removeSeriesFromHistory,
   setSeriesSubscription,
 } from "@infra/services/library/popup";
 import { ofType } from "redux-observable";
-import { from, type Observable,of } from "rxjs";
+import { from, type Observable, of } from "rxjs";
 import { catchError, mergeMap } from "rxjs/operators";
 
 import type { PopupEpic } from "../types";
@@ -72,14 +74,18 @@ const removeCardEpic: PopupEpic = (action$) =>
             : dismissSeriesUpdate(site, comicsID, chapterID);
 
       return from(operation).pipe(
-        mergeMap(() =>
+        mergeMap(() => from(pushLibrarySyncIfEnabled())),
+        mergeMap((librarySyncStatus) =>
           from(getPopupFeedSnapshot()).pipe(
             mergeMap((feed) => {
               const count = getPopupUpdateCount(feed);
               chrome.action.setBadgeText({
                 text: `${count === 0 ? "" : count}`,
               });
-              return [hydratePopupFeed(feed, "load")];
+              return [
+                hydratePopupFeed(feed, "load"),
+                setLibrarySyncStatus(librarySyncStatus),
+              ];
             }),
           ),
         ),

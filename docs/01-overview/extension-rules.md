@@ -6,6 +6,7 @@
 - **維持資料流**：UI → actions → reducers → epics / services → persistence / network → actions。
 - **持久化唯一來源**：跨頁面主資料以 `IndexedDB` 為準，Redux 僅管理頁面內 state。
 - **同步訊號**：`chrome.storage.local` 僅可用於小型設定與 cross-context signal，不承載主 library 資料。
+- **Chrome Sync 限縮**：`chrome.storage.sync` 僅可保存精簡 library sync payload，不得保存完整章節快取或取代 IndexedDB。
 - **優先增量更新**：新功能不得優先依賴 `loadLibrary → mutate snapshot → saveLibrary`，應直接新增 repository query / mutation API。
 - **Domain 不依賴 infra**：`src/domain/**` 不得 import `src/infra/**`；跨層共用 contract 放在 `src/domain/*`。
 - **Sites 不依賴 epics**：`src/sites/**` 只放站點 adapter、metadata parser/resolver，不得 import `src/epics/**`。
