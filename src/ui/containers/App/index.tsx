@@ -7,7 +7,21 @@ import {
   startResize,
   toggleSubscribe,
 } from "@domain/actions/reader";
-import { type ComicsState, updateSubscribe } from "@domain/reducers/comics";
+import {
+  adjustReaderImageScale,
+  type ComicsState,
+  getReaderZoomScaleForTarget,
+  type ReaderZoomTarget,
+  resetReaderImageScale,
+  setReaderZoomTarget,
+  updateSubscribe,
+} from "@domain/reducers/comics";
+import {
+  getReaderImageScalePercent,
+  READER_IMAGE_SCALE_MAX,
+  READER_IMAGE_SCALE_MIN,
+  READER_IMAGE_SCALE_STEP,
+} from "@domain/utils/readerLayout";
 import PrevIcon from "@imgs/circle-left.svg?react";
 import NextIcon from "@imgs/circle-right.svg?react";
 import FullscreenEnterIcon from "@imgs/fullscreen-enter.svg?react";
@@ -34,12 +48,20 @@ type AppStateProps = {
   subscribe: boolean;
   title: string;
   url: string;
+  canDecreaseReaderZoom: boolean;
+  canIncreaseReaderZoom: boolean;
+  canUseSelectedReaderZoom: boolean;
+  readerZoomPercent: number;
+  readerZoomTarget: ReaderZoomTarget;
 };
 
 type AppDispatchProps = {
+  adjustReaderImageScale: typeof adjustReaderImageScale;
   fetchChapter: typeof fetchChapter;
   navigateChapter: typeof navigateChapter;
+  resetReaderImageScale: typeof resetReaderImageScale;
   startResize: typeof startResize;
+  setReaderZoomTarget: typeof setReaderZoomTarget;
   toggleSubscribe: typeof toggleSubscribe;
   updateSubscribe: typeof updateSubscribe;
 };
@@ -70,24 +92,42 @@ function getFullscreenIconClass(isFullscreen: boolean) {
   return "fill-current text-comic-ink/60 transition-colors duration-150";
 }
 
+function getZoomModeButtonClass(active: boolean) {
+  return active
+    ? "reader-zoom-mode-button reader-zoom-mode-button-active"
+    : "reader-zoom-mode-button";
+}
+
+const READER_ZOOM_TOOLS_ID = "reader-zoom-tools";
+
 function App(props: AppProps) {
   const hasFetchedInitialChapterRef = useRef(false);
+  const readerZoomTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(() =>
     Boolean(document.fullscreenElement),
   );
   const [showChapterList, setShowChapterList] = useState(false);
+  const [showReaderZoomTools, setShowReaderZoomTools] = useState(false);
   const {
     chapterList,
     chapterNowIndex,
     chapterTitle,
     comicsID,
+    adjustReaderImageScale: adjustReaderImageScaleProp = () => undefined,
+    canDecreaseReaderZoom = true,
+    canIncreaseReaderZoom = true,
+    canUseSelectedReaderZoom = false,
     fetchChapter: fetchChapterProp,
     navigateChapter: navigateChapterProp,
     nextable,
     prevable,
+    readerZoomPercent = 100,
+    readerZoomTarget = "all",
+    resetReaderImageScale: resetReaderImageScaleProp = () => undefined,
     seriesKey,
     site,
     startResize: startResizeProp,
+    setReaderZoomTarget: setReaderZoomTargetProp = () => undefined,
     subscribe,
     title,
     toggleSubscribe: toggleSubscribeProp,
@@ -178,6 +218,30 @@ function App(props: AppProps) {
     };
   }, []);
 
+  const closeReaderZoomTools = useCallback(() => {
+    setShowReaderZoomTools(false);
+    readerZoomTriggerRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    if (!showReaderZoomTools) {
+      return undefined;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+      event.preventDefault();
+      closeReaderZoomTools();
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [closeReaderZoomTools, showReaderZoomTools]);
+
   const showChapterListHandler = useCallback(() => {
     setShowChapterList((prevState) => !prevState);
   }, []);
@@ -214,6 +278,30 @@ function App(props: AppProps) {
     void document.documentElement.requestFullscreen().catch((error: unknown) => {
       devLog("reader:fullscreen-enter-failed", error);
     });
+  }, []);
+
+  const setAllZoomTargetHandler = useCallback(() => {
+    setReaderZoomTargetProp("all");
+  }, [setReaderZoomTargetProp]);
+
+  const setSelectedZoomTargetHandler = useCallback(() => {
+    setReaderZoomTargetProp("selected");
+  }, [setReaderZoomTargetProp]);
+
+  const decreaseZoomHandler = useCallback(() => {
+    adjustReaderImageScaleProp(-READER_IMAGE_SCALE_STEP);
+  }, [adjustReaderImageScaleProp]);
+
+  const increaseZoomHandler = useCallback(() => {
+    adjustReaderImageScaleProp(READER_IMAGE_SCALE_STEP);
+  }, [adjustReaderImageScaleProp]);
+
+  const resetZoomHandler = useCallback(() => {
+    resetReaderImageScaleProp(readerZoomTarget);
+  }, [readerZoomTarget, resetReaderImageScaleProp]);
+
+  const toggleReaderZoomToolsHandler = useCallback(() => {
+    setShowReaderZoomTools((prevState) => !prevState);
   }, []);
 
   return (
@@ -262,6 +350,81 @@ function App(props: AppProps) {
             >
               <NextIcon className={getNavigationIconClass(nextable)} />
             </IconButton>
+            <button
+              type="button"
+              className="reader-zoom-trigger"
+              ref={readerZoomTriggerRef}
+              aria-controls={READER_ZOOM_TOOLS_ID}
+              aria-expanded={showReaderZoomTools}
+              onClick={toggleReaderZoomToolsHandler}
+            >
+              <span className="reader-zoom-trigger-label">縮放</span>
+              <span className="reader-zoom-trigger-value">
+                {readerZoomPercent}%
+              </span>
+            </button>
+            {showReaderZoomTools ? (
+              <div
+                id={READER_ZOOM_TOOLS_ID}
+                className="reader-zoom-popover"
+                role="toolbar"
+                aria-label="圖片縮放工具"
+              >
+                <button
+                  type="button"
+                  className={getZoomModeButtonClass(readerZoomTarget === "all")}
+                  aria-pressed={readerZoomTarget === "all"}
+                  onClick={setAllZoomTargetHandler}
+                >
+                  全部
+                </button>
+                <button
+                  type="button"
+                  className={getZoomModeButtonClass(
+                    readerZoomTarget === "selected",
+                  )}
+                  aria-pressed={readerZoomTarget === "selected"}
+                  disabled={!canUseSelectedReaderZoom}
+                  onClick={setSelectedZoomTargetHandler}
+                >
+                  本頁
+                </button>
+                <IconButton
+                  ariaLabel="縮小圖片"
+                  className="reader-zoom-step"
+                  disabled={!canDecreaseReaderZoom}
+                  onClickHandler={
+                    canDecreaseReaderZoom ? decreaseZoomHandler : undefined
+                  }
+                >
+                  <span className="reader-zoom-step-label">-</span>
+                </IconButton>
+                <button
+                  type="button"
+                  className="reader-zoom-percent"
+                  aria-label={`重設圖片縮放，目前 ${readerZoomPercent}%`}
+                  onClick={resetZoomHandler}
+                >
+                  {readerZoomPercent}%
+                </button>
+                <IconButton
+                  ariaLabel="放大圖片"
+                  className="reader-zoom-step"
+                  disabled={!canIncreaseReaderZoom}
+                  onClickHandler={
+                    canIncreaseReaderZoom ? increaseZoomHandler : undefined
+                  }
+                >
+                  <span className="reader-zoom-step-label">+</span>
+                </IconButton>
+                <button
+                  type="button"
+                  className="reader-zoom-close-button"
+                  aria-label="關閉縮放工具"
+                  onClick={closeReaderZoomTools}
+                />
+              </div>
+            ) : undefined}
             <IconButton
               ariaLabel={subscribe ? "取消追蹤" : "追蹤作品"}
               disabled={chapterTitle === ""}
@@ -307,6 +470,7 @@ function mapStateToProps({ comics }: { comics: ComicsState }): AppStateProps {
     seriesKey,
     baseURL,
   } = comics;
+  const activeReaderZoomScale = getReaderZoomScaleForTarget(comics);
   return {
     title,
     chapterTitle: currentChapterTitle,
@@ -319,13 +483,21 @@ function mapStateToProps({ comics }: { comics: ComicsState }): AppStateProps {
     seriesKey,
     subscribe,
     url: `${baseURL}/${comicsID}`,
+    canDecreaseReaderZoom: activeReaderZoomScale > READER_IMAGE_SCALE_MIN,
+    canIncreaseReaderZoom: activeReaderZoomScale < READER_IMAGE_SCALE_MAX,
+    canUseSelectedReaderZoom: typeof comics.selectedImageId === "number",
+    readerZoomPercent: getReaderImageScalePercent(activeReaderZoomScale),
+    readerZoomTarget: comics.readerZoomTarget,
   };
 }
 
 const connectedApp = connect(mapStateToProps, {
+  adjustReaderImageScale,
   fetchChapter,
   startResize,
   navigateChapter,
+  resetReaderImageScale,
+  setReaderZoomTarget,
   updateSubscribe,
   toggleSubscribe,
 })(App);

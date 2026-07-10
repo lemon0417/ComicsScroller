@@ -2,10 +2,12 @@ import {
   fetchChapter,
   imageLoadFailed,
   retryImage,
+  updateVisibleImageRange,
 } from "@domain/actions/reader";
 import { READER_IMAGE_GAP } from "@domain/utils/readerLayout";
 
 import comics, {
+  adjustReaderImageScale,
   appendPendingChapterGate,
   clearLeadingEvictionRestore,
   concatImageList,
@@ -13,7 +15,9 @@ import comics, {
   MAX_IMAGE_AUTO_RETRY_COUNT,
   receivePendingChapterGate,
   resetImg,
+  resetReaderImageScale,
   setChapterLoadFailed,
+  setReaderZoomTarget,
   updateCanPreloadPreviousChapter,
   updateChapterList,
   updateChapterNowIndex,
@@ -43,6 +47,12 @@ describe("comics reducer", () => {
   it("resets imageList on resetImg", () => {
     const seededState = {
       ...(comics(undefined, { type: "@@INIT" } as any) as any),
+      readerGlobalScale: 0.7,
+      readerZoomTarget: "selected",
+      selectedImageId: 0,
+      imageScaleOverrides: {
+        0: 0.6,
+      },
       imageList: {
         result: [0, 1],
         entity: {
@@ -58,6 +68,10 @@ describe("comics reducer", () => {
     expect(nextState.readyChapters).toEqual({});
     expect(nextState.pendingChapterGate).toBeNull();
     expect(nextState.leadingEvictionRestore).toBeNull();
+    expect(nextState.readerGlobalScale).toBe(1);
+    expect(nextState.readerZoomTarget).toBe("all");
+    expect(nextState.selectedImageId).toBeNull();
+    expect(nextState.imageScaleOverrides).toEqual({});
   });
 
   it("builds a canonical seriesKey when site and comicsID are set", () => {
@@ -164,6 +178,115 @@ describe("comics reducer", () => {
         src: "https://example.com/chapterfun.ashx?page=1",
       }),
     );
+  });
+
+  it("adjusts global reader zoom and recalculates loaded image heights", () => {
+    let nextState = comics(
+      comics(
+        comics(undefined, { type: "@@INIT" } as any) as any,
+        updateInnerWidth(1280) as any,
+      ) as any,
+      updateInnerHeight(900) as any,
+    ) as any;
+
+    nextState = comics(
+      nextState,
+      concatImageList([
+        {
+          chapter: "c1",
+          src: "https://example.com/c1-1.jpg",
+        },
+      ]) as any,
+    ) as any;
+    nextState = comics(
+      nextState,
+      updateImgType(2240, 0, "natural", 1000, 2000) as any,
+    ) as any;
+    nextState = comics(nextState, adjustReaderImageScale(-0.1) as any) as any;
+
+    expect(nextState.readerGlobalScale).toBe(0.9);
+    expect(nextState.imageList.entity[0].height).toBe(2016);
+  });
+
+  it("selects the first readable image in the visible range for page zoom", () => {
+    let nextState = comics(
+      comics(undefined, { type: "@@INIT" } as any) as any,
+      concatImageList([
+        {
+          chapter: "c1",
+          href: "https://example.com/paywall",
+          src: "",
+          type: "paywall",
+        },
+        {
+          chapter: "c1",
+          src: "https://example.com/c1-1.jpg",
+        },
+      ]) as any,
+    ) as any;
+
+    nextState = comics(nextState, updateVisibleImageRange(0, 2) as any) as any;
+
+    expect(nextState.selectedImageId).toBe(1);
+  });
+
+  it("overrides and resets the current visible reader image scale", () => {
+    let nextState = comics(
+      comics(
+        comics(undefined, { type: "@@INIT" } as any) as any,
+        updateInnerWidth(1280) as any,
+      ) as any,
+      updateInnerHeight(900) as any,
+    ) as any;
+
+    nextState = comics(
+      nextState,
+      concatImageList([
+        {
+          chapter: "c1",
+          src: "https://example.com/c1-1.jpg",
+        },
+        {
+          chapter: "c1",
+          src: "https://example.com/c1-2.jpg",
+        },
+      ]) as any,
+    ) as any;
+    nextState = comics(
+      nextState,
+      updateImgType(2240, 0, "natural", 1000, 2000) as any,
+    ) as any;
+    nextState = comics(
+      nextState,
+      updateImgType(2240, 1, "natural", 1000, 2000) as any,
+    ) as any;
+    nextState = comics(nextState, updateVisibleImageRange(1, 1) as any) as any;
+    nextState = comics(nextState, setReaderZoomTarget("selected") as any) as any;
+    nextState = comics(nextState, adjustReaderImageScale(-0.1) as any) as any;
+
+    expect(nextState.selectedImageId).toBe(1);
+    expect(nextState.readerZoomTarget).toBe("selected");
+    expect(nextState.imageScaleOverrides).toEqual({ 1: 0.9 });
+    expect(nextState.imageList.entity[0].height).toBe(2240);
+    expect(nextState.imageList.entity[1].height).toBe(2016);
+
+    nextState = comics(
+      nextState,
+      resetReaderImageScale("selected") as any,
+    ) as any;
+
+    expect(nextState.imageScaleOverrides).toEqual({});
+    expect(nextState.imageList.entity[1].height).toBe(2240);
+  });
+
+  it("does not enter selected zoom mode before an image is selected", () => {
+    const prevState = comics(undefined, { type: "@@INIT" } as any) as any;
+    const nextState = comics(
+      prevState,
+      setReaderZoomTarget("selected") as any,
+    );
+
+    expect(nextState.readerZoomTarget).toBe("all");
   });
 
   it("keeps images in loading while auto retries remain", () => {
@@ -536,6 +659,12 @@ describe("comics reducer", () => {
     const prevState = {
       ...(comics(undefined, { type: "@@INIT" } as any) as any),
       chapterList: ["c0", "c1", "c2", "c3", "c4", "c5"],
+      readerZoomTarget: "selected",
+      selectedImageId: 10,
+      imageScaleOverrides: {
+        10: 0.8,
+        12: 0.9,
+      },
       imageList: {
         result: [10, 11, 12, 13, 14, 15, 16, 17],
         entity: {
@@ -567,6 +696,9 @@ describe("comics reducer", () => {
       firstRetainedImageId: 12,
       removedScrollHeight: 200 + READER_IMAGE_GAP * 4,
     });
+    expect(nextState.readerZoomTarget).toBe("all");
+    expect(nextState.selectedImageId).toBeNull();
+    expect(nextState.imageScaleOverrides).toEqual({ 12: 0.9 });
   });
 
   it("clears only the matching leading eviction restore sequence", () => {

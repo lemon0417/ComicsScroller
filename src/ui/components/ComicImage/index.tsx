@@ -9,6 +9,7 @@ import {
   type ComicsImageRecord,
   type ComicsImageType,
   type ComicsState,
+  getReaderImageScaleForImage,
   updateImgType,
 } from "@domain/reducers/comics";
 import { getImageRenderMetrics } from "@domain/utils/readerLayout";
@@ -37,6 +38,7 @@ type Props = {
   naturalHeight?: number;
   renderHeight?: number;
   renderWidth?: number;
+  imageScale?: number;
   index?: number;
   updateImgType?: (
     height: number,
@@ -77,6 +79,7 @@ function ComicImage(props: Props) {
     height,
     renderHeight,
     renderWidth,
+    imageScale,
     retryImage: retryImageProp,
     src,
     type,
@@ -163,6 +166,7 @@ function ComicImage(props: Props) {
           naturalHeight: imageMetricsRef.current.height,
           innerWidth,
           innerHeight,
+          imageScale,
         });
         if (updateImgType && typeof index === "number") {
           updateImgType(
@@ -196,6 +200,7 @@ function ComicImage(props: Props) {
     index,
     innerHeight,
     innerWidth,
+    imageScale,
     naturalHeight,
     naturalWidth,
     type,
@@ -326,6 +331,7 @@ function makeMapStateToProps(
       naturalWidth,
       naturalHeight,
     } = comics.imageList.entity[index] || createFallbackImageRecord();
+    const imageScale = getReaderImageScaleForImage(comics, index);
     const layout = getImageRenderMetrics({
       type,
       height,
@@ -333,6 +339,7 @@ function makeMapStateToProps(
       naturalHeight,
       innerWidth: comics.innerWidth,
       innerHeight: comics.innerHeight,
+      imageScale,
     });
 
     return {
@@ -350,6 +357,7 @@ function makeMapStateToProps(
       innerWidth: comics.innerWidth,
       renderHeight: layout.height,
       renderWidth: layout.width,
+      imageScale,
     };
   };
 }

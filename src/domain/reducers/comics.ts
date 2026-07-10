@@ -3,9 +3,16 @@ import {
   IMAGE_LOAD_FAILED,
   type ReaderImageFailureStage,
   RETRY_IMAGE,
+  UPDATE_VISIBLE_IMAGE_RANGE,
 } from "@domain/actions/reader";
 import { buildSeriesKey } from "@domain/library";
-import { READER_IMAGE_GAP } from "@domain/utils/readerLayout";
+import {
+  clampReaderImageScale,
+  getImageRenderMetrics,
+  READER_IMAGE_GAP,
+  READER_IMAGE_SCALE_DEFAULT,
+  READER_IMAGE_SCALE_STEP,
+} from "@domain/utils/readerLayout";
 import reduce from "lodash/reduce";
 
 export type ComicsChapterRecord = {
@@ -35,6 +42,7 @@ export type ComicsImageRecord = ComicsImageSource & {
 };
 
 export type PendingChapterGateStatus = "fetching" | "queued";
+export type ReaderZoomTarget = "all" | "selected";
 
 export type PendingChapterGateRecord = {
   blockingChapterId: string;
@@ -72,9 +80,13 @@ export type ComicsState = {
   pendingChapterGate: PendingChapterGateRecord | null;
   leadingEvictionRestore: LeadingEvictionRestoreRecord | null;
   leadingEvictionRestoreSequence: number;
+  readerGlobalScale: number;
+  readerZoomTarget: ReaderZoomTarget;
   read: string[];
   renderBeginIndex: number;
   renderEndIndex: number;
+  selectedImageId: number | null;
+  imageScaleOverrides: Record<number, number>;
   imageList: {
     result: number[];
     entity: Record<number, ComicsImageRecord>;
@@ -105,6 +117,8 @@ type Action = {
   site?: string;
   stage?: ReaderImageFailureStage;
   gate?: PendingChapterGateRecord;
+  scaleDelta?: number;
+  zoomTarget?: ReaderZoomTarget;
 };
 
 export const MAX_IMAGE_AUTO_RETRY_COUNT = 2;
@@ -130,9 +144,13 @@ const initialState: ComicsState = {
   pendingChapterGate: null,
   leadingEvictionRestore: null,
   leadingEvictionRestoreSequence: 0,
+  readerGlobalScale: READER_IMAGE_SCALE_DEFAULT,
+  readerZoomTarget: "all",
   read: [],
   renderBeginIndex: 0,
   renderEndIndex: 0,
+  selectedImageId: null,
+  imageScaleOverrides: {},
   imageList: {
     result: [],
     entity: {},
@@ -164,6 +182,9 @@ const RECEIVE_PENDING_CHAPTER_GATE = "RECEIVE_PENDING_CHAPTER_GATE";
 const APPEND_PENDING_CHAPTER_GATE = "APPEND_PENDING_CHAPTER_GATE";
 const CLEAR_PENDING_CHAPTER_GATE = "CLEAR_PENDING_CHAPTER_GATE";
 const CLEAR_LEADING_EVICTION_RESTORE = "CLEAR_LEADING_EVICTION_RESTORE";
+const SET_READER_ZOOM_TARGET = "SET_READER_ZOOM_TARGET";
+const ADJUST_READER_IMAGE_SCALE = "ADJUST_READER_IMAGE_SCALE";
+const RESET_READER_IMAGE_SCALE = "RESET_READER_IMAGE_SCALE";
 
 function createFallbackImageRecord(chapter = ""): ComicsImageRecord {
   return {
@@ -363,6 +384,228 @@ function syncReadyChaptersForAppendedImages(state: ComicsState) {
 
 function getReaderImageRowHeight(record?: ComicsImageRecord) {
   return Math.max(0, record?.height || 0) + READER_IMAGE_GAP * 2;
+}
+
+function isReaderZoomTargetImage(record?: ComicsImageRecord) {
+  return Boolean(record && record.type !== "end" && record.type !== "paywall");
+}
+
+function resolveVisibleReaderImageId(input: {
+  begin: number;
+  end: number;
+  imageList: ComicsState["imageList"];
+}) {
+  const { begin, end, imageList } = input;
+  if (imageList.result.length === 0) {
+    return null;
+  }
+
+  const startIndex = Math.max(0, begin);
+  const endIndex = Math.min(imageList.result.length - 1, end);
+  if (startIndex > endIndex) {
+    return null;
+  }
+
+  for (let index = startIndex; index <= endIndex; index += 1) {
+    const imageId = imageList.result[index];
+    if (
+      typeof imageId === "number" &&
+      isReaderZoomTargetImage(imageList.entity[imageId])
+    ) {
+      return imageId;
+    }
+  }
+  return null;
+}
+
+export function getReaderImageScaleForImage(
+  state: Pick<ComicsState, "imageScaleOverrides" | "readerGlobalScale">,
+  imageId: number,
+) {
+  const overrideScale = state.imageScaleOverrides[imageId];
+  return clampReaderImageScale(
+    typeof overrideScale === "number"
+      ? overrideScale
+      : state.readerGlobalScale,
+  );
+}
+
+export function getReaderZoomScaleForTarget(
+  state: Pick<
+    ComicsState,
+    | "imageScaleOverrides"
+    | "readerGlobalScale"
+    | "readerZoomTarget"
+    | "selectedImageId"
+  >,
+) {
+  if (
+    state.readerZoomTarget === "selected" &&
+    typeof state.selectedImageId === "number"
+  ) {
+    return getReaderImageScaleForImage(state, state.selectedImageId);
+  }
+  return clampReaderImageScale(state.readerGlobalScale);
+}
+
+function getRecalculatedImageRecord(
+  state: ComicsState,
+  imageId: number,
+  record: ComicsImageRecord,
+) {
+  if (
+    !record.naturalWidth ||
+    !record.naturalHeight ||
+    record.type === "end" ||
+    record.type === "paywall"
+  ) {
+    return record;
+  }
+
+  const layout = getImageRenderMetrics({
+    type: record.type,
+    height: record.height,
+    naturalWidth: record.naturalWidth,
+    naturalHeight: record.naturalHeight,
+    innerWidth: state.innerWidth,
+    innerHeight: state.innerHeight,
+    imageScale: getReaderImageScaleForImage(state, imageId),
+  });
+  if (layout.height === record.height && layout.type === record.type) {
+    return record;
+  }
+  return {
+    ...record,
+    height: layout.height,
+    type: layout.type,
+  };
+}
+
+function recalculateReaderImageHeights(
+  state: ComicsState,
+  shouldUpdateImage: (imageId: number) => boolean,
+) {
+  let nextEntity = state.imageList.entity;
+  let hasChanged = false;
+
+  for (let index = 0; index < state.imageList.result.length; index += 1) {
+    const imageId = state.imageList.result[index];
+    const record = state.imageList.entity[imageId];
+    if (!record || !shouldUpdateImage(imageId)) {
+      continue;
+    }
+    const nextRecord = getRecalculatedImageRecord(state, imageId, record);
+    if (nextRecord === record) {
+      continue;
+    }
+    if (!hasChanged) {
+      nextEntity = { ...state.imageList.entity };
+      hasChanged = true;
+    }
+    nextEntity[imageId] = nextRecord;
+  }
+
+  if (!hasChanged) {
+    return state;
+  }
+  return {
+    ...state,
+    imageList: {
+      ...state.imageList,
+      entity: nextEntity,
+    },
+  };
+}
+
+function updateReaderGlobalScale(state: ComicsState, nextScale: number) {
+  const readerGlobalScale = clampReaderImageScale(nextScale);
+  if (readerGlobalScale === state.readerGlobalScale) {
+    return state;
+  }
+  const nextState = {
+    ...state,
+    readerGlobalScale,
+  };
+  return recalculateReaderImageHeights(
+    nextState,
+    (imageId) => typeof nextState.imageScaleOverrides[imageId] !== "number",
+  );
+}
+
+function updateSelectedImageScale(state: ComicsState, nextScale: number) {
+  if (typeof state.selectedImageId !== "number") {
+    return state;
+  }
+  const selectedImageId = state.selectedImageId;
+  const imageScale = clampReaderImageScale(nextScale);
+  if (state.imageScaleOverrides[selectedImageId] === imageScale) {
+    return state;
+  }
+  const nextState = {
+    ...state,
+    imageScaleOverrides: {
+      ...state.imageScaleOverrides,
+      [selectedImageId]: imageScale,
+    },
+  };
+  return recalculateReaderImageHeights(
+    nextState,
+    (imageId) => imageId === selectedImageId,
+  );
+}
+
+function resetSelectedImageScale(state: ComicsState) {
+  if (typeof state.selectedImageId !== "number") {
+    return state;
+  }
+  const selectedImageId = state.selectedImageId;
+  if (typeof state.imageScaleOverrides[selectedImageId] !== "number") {
+    return state;
+  }
+  const imageScaleOverrides = { ...state.imageScaleOverrides };
+  delete imageScaleOverrides[selectedImageId];
+  const nextState = {
+    ...state,
+    imageScaleOverrides,
+  };
+  return recalculateReaderImageHeights(
+    nextState,
+    (imageId) => imageId === selectedImageId,
+  );
+}
+
+function updateReaderVisibleRange(
+  state: ComicsState,
+  action: Pick<Action, "begin" | "end">,
+) {
+  const renderBeginIndex =
+    typeof action.begin === "number"
+      ? action.begin
+      : state.renderBeginIndex;
+  const renderEndIndex =
+    typeof action.end === "number" ? action.end : state.renderEndIndex;
+  const visibleImageId = resolveVisibleReaderImageId({
+    begin: renderBeginIndex,
+    end: renderEndIndex,
+    imageList: state.imageList,
+  });
+  const selectedImageId =
+    typeof visibleImageId === "number" ? visibleImageId : state.selectedImageId;
+
+  if (
+    renderBeginIndex === state.renderBeginIndex &&
+    renderEndIndex === state.renderEndIndex &&
+    selectedImageId === state.selectedImageId
+  ) {
+    return state;
+  }
+
+  return {
+    ...state,
+    renderBeginIndex,
+    renderEndIndex,
+    selectedImageId,
+  };
 }
 
 function appendPendingChapterToState(state: ComicsState): ComicsState {
@@ -618,16 +861,41 @@ export default function comics(
         ...state,
         canPreloadPreviousChapter: action.data,
       };
+    case UPDATE_VISIBLE_IMAGE_RANGE:
     case UPDATE_RENDER_INDEX:
+      return updateReaderVisibleRange(state, action);
+    case SET_READER_ZOOM_TARGET:
+      if (action.zoomTarget === "selected" && state.selectedImageId === null) {
+        return state;
+      }
+      if (action.zoomTarget !== "all" && action.zoomTarget !== "selected") {
+        return state;
+      }
       return {
         ...state,
-        renderBeginIndex:
-          typeof action.begin === "number"
-            ? action.begin
-            : state.renderBeginIndex,
-        renderEndIndex:
-          typeof action.end === "number" ? action.end : state.renderEndIndex,
+        readerZoomTarget: action.zoomTarget,
       };
+    case ADJUST_READER_IMAGE_SCALE: {
+      const scaleDelta =
+        typeof action.scaleDelta === "number"
+          ? action.scaleDelta
+          : READER_IMAGE_SCALE_STEP;
+      if (state.readerZoomTarget === "selected") {
+        if (typeof state.selectedImageId !== "number") {
+          return state;
+        }
+        return updateSelectedImageScale(
+          state,
+          getReaderImageScaleForImage(state, state.selectedImageId) + scaleDelta,
+        );
+      }
+      return updateReaderGlobalScale(state, state.readerGlobalScale + scaleDelta);
+    }
+    case RESET_READER_IMAGE_SCALE:
+      if ((action.zoomTarget || state.readerZoomTarget) === "selected") {
+        return resetSelectedImageScale(state);
+      }
+      return updateReaderGlobalScale(state, READER_IMAGE_SCALE_DEFAULT);
     case UPDATE_READ_CHAPTERS:
       if (!Array.isArray(action.data)) return state;
       return {
@@ -720,11 +988,21 @@ export default function comics(
 
       const nextResult = state.imageList.result.slice(removeCount);
       const nextEntity = { ...state.imageList.entity };
+      const nextImageScaleOverrides = { ...state.imageScaleOverrides };
+      let didRemoveImageScaleOverride = false;
+      let didRemoveSelectedImage = false;
       let removedScrollHeight = 0;
       for (let index = 0; index < removeCount; index += 1) {
         const imageID = state.imageList.result[index];
         removedScrollHeight += getReaderImageRowHeight(nextEntity[imageID]);
         delete nextEntity[imageID];
+        if (typeof nextImageScaleOverrides[imageID] === "number") {
+          delete nextImageScaleOverrides[imageID];
+          didRemoveImageScaleOverride = true;
+        }
+        if (state.selectedImageId === imageID) {
+          didRemoveSelectedImage = true;
+        }
       }
       const firstRetainedImageId = nextResult[0];
       const nextRestoreSequence = state.leadingEvictionRestoreSequence + 1;
@@ -744,6 +1022,11 @@ export default function comics(
           result: nextResult,
           entity: nextEntity,
         },
+        imageScaleOverrides: didRemoveImageScaleOverride
+          ? nextImageScaleOverrides
+          : state.imageScaleOverrides,
+        selectedImageId: didRemoveSelectedImage ? null : state.selectedImageId,
+        readerZoomTarget: didRemoveSelectedImage ? "all" : state.readerZoomTarget,
       };
     }
     case CLEAR_LEADING_EVICTION_RESTORE:
@@ -764,6 +1047,10 @@ export default function comics(
         pendingChapterGate: null,
         leadingEvictionRestore: null,
         leadingEvictionRestoreSequence: 0,
+        readerGlobalScale: READER_IMAGE_SCALE_DEFAULT,
+        readerZoomTarget: "all",
+        selectedImageId: null,
+        imageScaleOverrides: {},
         imageList: {
           result: [],
           entity: {},
@@ -872,6 +1159,18 @@ export function updateInnerHeight(innerHeight: number) {
 
 export function updateInnerWidth(innerWidth: number) {
   return { type: UPDATE_INNER_WIDTH, innerWidth };
+}
+
+export function setReaderZoomTarget(zoomTarget: ReaderZoomTarget) {
+  return { type: SET_READER_ZOOM_TARGET, zoomTarget };
+}
+
+export function adjustReaderImageScale(scaleDelta: number) {
+  return { type: ADJUST_READER_IMAGE_SCALE, scaleDelta };
+}
+
+export function resetReaderImageScale(zoomTarget?: ReaderZoomTarget) {
+  return { type: RESET_READER_IMAGE_SCALE, zoomTarget };
 }
 
 export function updateSiteInfo(site: string, baseURL: string) {

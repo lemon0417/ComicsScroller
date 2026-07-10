@@ -21,6 +21,7 @@ type ComicImageTestProps = {
   loading: boolean;
   renderHeight?: number;
   renderWidth?: number;
+  imageScale?: number;
   src: string;
   type?: ComicsImageType;
   imageLoadFailed: jest.Mock;
@@ -121,6 +122,17 @@ describe("ComicImage Loading controls", () => {
       layout.type,
       1200,
       1800,
+    );
+  });
+
+  it("does not make image surfaces directly selectable", () => {
+    const { container } = renderComicImage({
+      type: "image",
+    });
+
+    expect(container.firstChild).not.toHaveAttribute("role", "button");
+    expect(container.firstChild).not.toHaveClass(
+      "reader-page-surface-selectable",
     );
   });
 

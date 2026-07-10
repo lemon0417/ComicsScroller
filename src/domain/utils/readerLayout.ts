@@ -4,6 +4,10 @@ export const READER_HEADER_HEIGHT = 48;
 export const READER_IMAGE_GAP = 16;
 const READER_MAX_WIDTH = 1120;
 export const DEFAULT_IMAGE_HEIGHT = 1400;
+export const READER_IMAGE_SCALE_DEFAULT = 1;
+export const READER_IMAGE_SCALE_MIN = 0.5;
+export const READER_IMAGE_SCALE_MAX = 1.25;
+export const READER_IMAGE_SCALE_STEP = 0.1;
 
 type ImageLayoutInput = {
   type?: ComicsImageType;
@@ -12,6 +16,7 @@ type ImageLayoutInput = {
   naturalHeight?: number;
   innerWidth?: number;
   innerHeight?: number;
+  imageScale?: number;
 };
 
 type ImageRenderMetrics = {
@@ -32,6 +37,25 @@ function getReaderRailWidth(innerWidth = 0) {
   return Math.max(240, Math.min(READER_MAX_WIDTH, viewportWidth - gutter));
 }
 
+export function clampReaderImageScale(scale = READER_IMAGE_SCALE_DEFAULT) {
+  const roundedScale = Math.round(scale * 100) / 100;
+  return Math.min(
+    READER_IMAGE_SCALE_MAX,
+    Math.max(READER_IMAGE_SCALE_MIN, roundedScale),
+  );
+}
+
+export function getReaderImageScalePercent(scale = READER_IMAGE_SCALE_DEFAULT) {
+  return Math.round(clampReaderImageScale(scale) * 100);
+}
+
+function getReaderScaledRailWidth(innerWidth = 0, imageScale?: number) {
+  const viewportWidth = Math.max(innerWidth, 320);
+  const scaledWidth =
+    getReaderRailWidth(innerWidth) * clampReaderImageScale(imageScale);
+  return Math.max(120, Math.min(viewportWidth, scaledWidth));
+}
+
 function getWideImageMaxHeight(innerHeight = 0) {
   const viewportHeight = Math.max(innerHeight, 320);
   return Math.max(240, viewportHeight - READER_HEADER_HEIGHT - 40);
@@ -44,12 +68,13 @@ export function getImageRenderMetrics({
   naturalHeight,
   innerWidth,
   innerHeight,
+  imageScale,
 }: ImageLayoutInput): ImageRenderMetrics {
-  const width = getReaderRailWidth(innerWidth);
+  const width = getReaderScaledRailWidth(innerWidth, imageScale);
 
   if (type === "end") {
     return {
-      width,
+      width: getReaderRailWidth(innerWidth),
       height: height || 72,
       type: "end",
     };
@@ -57,7 +82,7 @@ export function getImageRenderMetrics({
 
   if (type === "paywall") {
     return {
-      width,
+      width: getReaderRailWidth(innerWidth),
       height: Math.max(height || 0, getWideImageMaxHeight(innerHeight)),
       type: "paywall",
     };
@@ -65,8 +90,10 @@ export function getImageRenderMetrics({
 
   if (!naturalWidth || !naturalHeight) {
     return {
-      width,
-      height: height || DEFAULT_IMAGE_HEIGHT,
+      width: Math.round(width),
+      height: Math.round(
+        (height || DEFAULT_IMAGE_HEIGHT) * clampReaderImageScale(imageScale),
+      ),
       type: type || "image",
     };
   }

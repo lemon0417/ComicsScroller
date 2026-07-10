@@ -755,6 +755,108 @@
     @apply ml-3 flex shrink-0 items-center gap-1.5;
   }
 
+  .reader-zoom-trigger {
+    @apply inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[13px] px-2.5 text-[11px] font-black transition-[background-color,border-color,color,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-comic-accent focus-visible:ring-offset-2 focus-visible:ring-offset-comic-paper active:translate-y-px;
+    border: 1px solid rgb(var(--cs-color-line) / 0.62);
+    background: rgb(var(--cs-color-paper) / 0.62);
+    color: rgb(var(--cs-color-ink) / 0.62);
+  }
+
+  .reader-zoom-trigger:hover,
+  .reader-zoom-trigger[aria-expanded="true"] {
+    border-color: rgb(var(--cs-color-primary) / 0.2);
+    background: rgb(var(--cs-color-paper));
+    color: rgb(var(--cs-color-ink) / 0.78);
+  }
+
+  .reader-zoom-trigger-value {
+    @apply tabular-nums text-comic-accent;
+  }
+
+  .reader-zoom-popover {
+    @apply fixed right-3 top-[60px] z-[920] inline-flex h-10 items-center gap-1 rounded-[14px] px-1.5;
+    border: 1px solid rgb(var(--cs-color-line) / 0.72);
+    background: rgb(var(--cs-color-paper));
+    box-shadow: var(--cs-shadow-subtle);
+  }
+
+  .reader-zoom-mode-button {
+    @apply relative h-7 min-w-[34px] rounded-[10px] px-2 text-[11px] font-black text-comic-ink/55 transition-[background-color,color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-comic-accent focus-visible:ring-offset-1 focus-visible:ring-offset-comic-paper disabled:cursor-not-allowed disabled:text-comic-ink/25;
+  }
+
+  .reader-zoom-mode-button:hover:not(:disabled) {
+    background: rgb(var(--cs-color-paper) / 0.82);
+    color: rgb(var(--cs-color-ink) / 0.78);
+  }
+
+  .reader-zoom-mode-button-active:not(:disabled) {
+    color: rgb(var(--cs-color-ink) / 0.88);
+  }
+
+  .reader-zoom-mode-button-active:not(:disabled)::after {
+    content: "";
+    position: absolute;
+    inset-inline: 9px;
+    bottom: 3px;
+    height: 2px;
+    border-radius: 999px;
+    background: rgb(var(--cs-color-ink) / 0.42);
+  }
+
+  .reader-toolbar .reader-zoom-step {
+    @apply h-7 w-7 rounded-[10px] text-[15px] font-black;
+    border-color: transparent;
+    background: transparent;
+  }
+
+  .reader-toolbar .reader-zoom-step:hover:not(:disabled) {
+    background: rgb(var(--cs-color-paper));
+  }
+
+  .reader-zoom-step-label {
+    @apply leading-none text-comic-ink/70;
+  }
+
+  .reader-zoom-percent {
+    @apply flex h-7 min-w-[48px] items-center justify-center rounded-[10px] px-2 text-[11px] font-black tabular-nums text-comic-ink/65 transition-[background-color,color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-comic-accent focus-visible:ring-offset-1 focus-visible:ring-offset-comic-paper;
+    border: 1px solid rgb(var(--cs-color-line) / 0.52);
+    background: rgb(var(--cs-color-paper) / 0.68);
+  }
+
+  .reader-zoom-percent:hover {
+    background: rgb(var(--cs-color-paper));
+    color: rgb(var(--cs-color-primary));
+  }
+
+  .reader-zoom-close-button {
+    @apply relative h-7 w-7 rounded-[10px] text-comic-ink/55 transition-[background-color,color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-comic-accent focus-visible:ring-offset-1 focus-visible:ring-offset-comic-paper;
+  }
+
+  .reader-zoom-close-button:hover {
+    background: rgb(var(--cs-color-paper-hover));
+    color: rgb(var(--cs-color-ink) / 0.8);
+  }
+
+  .reader-zoom-close-button::before,
+  .reader-zoom-close-button::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 12px;
+    height: 2px;
+    border-radius: 999px;
+    background: currentColor;
+  }
+
+  .reader-zoom-close-button::before {
+    transform: translate(-50%, -50%) rotate(45deg);
+  }
+
+  .reader-zoom-close-button::after {
+    transform: translate(-50%, -50%) rotate(-45deg);
+  }
+
   .reader-toolbar .ds-icon-button {
     border-color: rgb(var(--cs-color-line) / 0.62);
     background: rgb(var(--cs-color-paper) / 0.62);
