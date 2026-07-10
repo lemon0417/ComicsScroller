@@ -18,8 +18,19 @@
 - `docs/03-features/manage.md`: 書庫管理頁的資料語意與刪除規則
 - `docs/03-features/library.md`: 書庫 runtime / dump / legacy 匯入資料模型
 
-## 04 營運與維護
+## 03-ops 營運與維護
 - `docs/03-ops/background-check.md`: 背景更新檢查（僅 dev）
 
-## 05 站點解析（商務邏輯）
+## 04 站點解析（商務邏輯）
+- `docs/04-sites/README.md`: 站點 adapter / parser 變更 checklist
 - `docs/04-sites/dm5.md`: DM5 解析流程（含 chapterfun.ashx）
+
+## 任務入口
+- Reader UI / 閱讀控制：`docs/01-overview/architecture.md`、`src/ui/containers/App/`、`src/ui/containers/ImageContainer/`
+- Reader state / scroll / preload：`docs/01-overview/architecture.md`、`src/domain/reducers/comics.ts`、`src/epics/scrollEpic.ts`、`src/epics/sites/readerFlow.ts`
+- Popup / Manage：`docs/03-features/manage.md`、`src/ui/containers/PopupApp/`、`src/ui/containers/ManageApp/`、`src/epics/popup/`
+- Library repository：`docs/03-features/library.md`、`src/infra/services/library/`
+- Background / release notice：`docs/03-ops/background-check.md`、`src/infra/services/background.ts`、`src/infra/services/extensionRelease.ts`
+- Site parser / 新站點：`docs/04-sites/README.md`，再依站點看 `docs/04-sites/*.md`
+- Release / 版本：`docs/02-dev/release.md`、`scripts/verify-release.mjs`
+- Pages site：`docs/02-dev/site.md`、`site/`

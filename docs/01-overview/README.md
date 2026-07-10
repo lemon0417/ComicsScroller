@@ -2,12 +2,13 @@
 
 ## 核心定位
 - 純前端 Chrome Extension（MV3），不依賴後端服務。
-- 主要包含：閱讀頁（app）、彈窗（popup）、背景服務（service worker）。
+- 主要包含：閱讀頁（app）、彈窗（popup）、管理頁（manage）、背景服務（service worker）。
 - 持久化主資料由 `IndexedDB` 管理，`chrome.storage.local` 僅負責同步 signal 與小型設定，頁面 store 只承擔 UI / session state。
 
 ## 入口與核心模組
 - Reader：`src/app.tsx` → `src/ui/containers/App`
 - Popup：`src/popup.tsx` → `src/ui/containers/PopupApp`
+- Manage：`src/manage.tsx` → `src/ui/containers/ManageApp`
 - Background：`src/background.ts`
 
 ## 目錄結構（重點）
@@ -24,14 +25,13 @@
 - `docs/`：文件
 
 ## 目前架構重點
-- 共享持久化模型：`src/infra/services/library.ts`
-- repository 採「主 facade + 場景 facade」：
-  - 通用入口：`library.ts`
+- 共享持久化模型位於 `src/infra/services/library/`
+- repository 呼叫面依 runtime 場景拆分：
   - reader：`library/reader.ts`
-  - popup：`library/popup.ts`
+  - popup / manage：`library/popup.ts`
   - background：`library/background.ts`
-- `library.ts` 是最小 facade，內部拆成 `schema / shared / queries / mutations / compat / signal`
-- facade 只保留業務 API；schema constants / row types / normalize helper 改由 `library/schema.ts` 內部持有
+- 新功能應先選場景 facade；只有 repository 行為本身才直接碰 `queries / mutations / compat / sync / signal`
+- schema constants / row types / normalize helper 由 `library/schema.ts` 內部持有
 - popup / manage / reader 的持久化同步：`chrome.storage.onChanged` + `librarySignal`
 - `LibrarySnapshotV2` 只留在 `compat.ts` 的匯入匯出與 migration 路徑，公開 facade 不再鼓勵 snapshot 型 API
 - runtime IndexedDB rows、dump v1/v2、legacy 匯入相容性是不同層次，細節見 `docs/03-features/library.md`

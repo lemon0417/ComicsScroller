@@ -10,9 +10,19 @@
 ## 優先測試範圍
 - Epics 的章節/圖片流程
 - Reducer 的核心狀態更新
-- `library.ts` 的 migration / canonical key / IndexedDB query / mutation 流程
+- `src/infra/services/library/` 的 migration / canonical key / IndexedDB query / mutation 流程
 - popup / manage 的 hydrate 與 `storage.onChanged` 同步
 - background 在 MV3 限制下的更新檢查流程
+
+## 任務對應測試
+- Reader UI / header / zoom：`src/ui/containers/App/index.test.tsx`、`src/ui/containers/ImageContainer/index.test.tsx`
+- Reader state / scroll / preload：`src/domain/reducers/comics.test.ts`、`src/epics/scrollEpic.test.ts`、`src/epics/sites/readerFlow.test.ts`
+- Popup / Manage：`src/epics/popup/*.test.ts`、`src/ui/containers/PopupApp/index.test.tsx`、`src/ui/containers/ManageApp/index.test.tsx`
+- Library repository：`src/infra/services/library/*.test.ts`
+- Background：`src/infra/services/background.test.ts`、`src/infra/services/extensionRelease.test.ts`
+- Site parsing / DM5：`src/sites/__tests__/dm5.meta.test.ts`、`src/epics/sites/dm5*.test.ts`
+- Release tooling：`scripts/*.test.js`、`yarn verify:release`
+- 收尾或 CI 等價驗證：`yarn verify`
 
 ## 重構後的測試原則
 - 新測試優先 mock 對應的場景 facade：

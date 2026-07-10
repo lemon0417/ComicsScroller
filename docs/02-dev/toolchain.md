@@ -4,7 +4,7 @@
 
 ## Node / Yarn
 - Node：`24.13.0`（`.nvmrc`）
-- Yarn：`4.0.2`（Corepack）
+- Yarn：`4.13.0`（`package.json#packageManager` / Corepack）
 
 ## 前端主依賴
 - React：`19.1.1`

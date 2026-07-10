@@ -47,6 +47,7 @@ yarn build
 - `yarn typecheck`
 - `yarn test --runInBand`
 - `yarn build`
+- 一般 CI 等價檢查可直接跑 `yarn verify`
 
 ### 手動 Smoke
 - `popup.html`
@@ -75,6 +76,7 @@ yarn build
 - `Release` workflow 會：
   - 執行 `yarn release`
   - 執行 `yarn release:metadata`
+  - 執行 `yarn release:notes`
   - 以 `CHROME_EXTENSION_PRIVATE_KEY_B64` 簽出 CRX
   - 產生 Release Notes（Conventional Commits / Angular preset）
   - 上傳 zip / crx / `latest-release.json` 並建立 GitHub Release
