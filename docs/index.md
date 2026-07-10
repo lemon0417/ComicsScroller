@@ -31,6 +31,6 @@
 - Popup / Manage：`docs/03-features/manage.md`、`src/ui/containers/PopupApp/`、`src/ui/containers/ManageApp/`、`src/epics/popup/`
 - Library repository：`docs/03-features/library.md`、`src/infra/services/library/`
 - Background / release notice：`docs/03-ops/background-check.md`、`src/infra/services/background.ts`、`src/infra/services/extensionRelease.ts`
-- Site parser / 新站點：`docs/04-sites/README.md`，再依站點看 `docs/04-sites/*.md`
+- Site parser / 新站點：先用 `$comic-scroller-site-adapter`，再看 `docs/04-sites/README.md` 與站點專屬文件
 - Release / 版本：`docs/02-dev/release.md`、`scripts/verify-release.mjs`
 - Pages site：`docs/02-dev/site.md`、`site/`

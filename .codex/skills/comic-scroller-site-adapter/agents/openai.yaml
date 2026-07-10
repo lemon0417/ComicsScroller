@@ -1,0 +1,4 @@
+interface:
+  display_name: "Comic Scroller Site Adapter"
+  short_description: "Guide site parser and adapter changes"
+  default_prompt: "Use $comic-scroller-site-adapter to plan a site parser or adapter change for Comic Scroller."

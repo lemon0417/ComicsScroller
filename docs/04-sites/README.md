@@ -1,5 +1,7 @@
 # 站點變更 Checklist
 
+Codex 處理站點 / parser / manifest / DNR / redirect 類任務時，優先使用 `$comic-scroller-site-adapter`。本文件是人類與 skill 共同引用的 canonical checklist。
+
 新增或調整站點時，先確認變更屬於 metadata、reader 圖片解析、redirect、manifest 權限或 DNR header 規則。
 
 ## 必查位置

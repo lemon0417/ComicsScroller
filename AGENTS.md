@@ -14,6 +14,7 @@
 ## Codex 工作入口
 - 硬性規範以 `docs/01-overview/extension-rules.md` 為準。
 - 任務路由與測試選擇先看 `docs/index.md` 的「任務入口」。
+- 站點 / parser / manifest / DNR / redirect 類任務優先使用 `$comic-scroller-site-adapter`。
 - 預設先跑相關 focused tests；收尾或 CI 等價檢查用 `yarn verify`。
 - 版本更新一律用 `yarn version:bump <major|minor|patch|x.y.z>`，不要手改版本號。
 

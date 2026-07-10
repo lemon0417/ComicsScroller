@@ -212,7 +212,11 @@ build/
 # OpenCode / Sisyphus
 .agent/
 .agents/
-.codex/
+.codex/*
+!.codex/skills/
+.codex/skills/*
+!.codex/skills/comic-scroller-site-adapter/
+!.codex/skills/comic-scroller-site-adapter/**
 .opencode/
 
 # Aider
