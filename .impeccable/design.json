@@ -1,0 +1,260 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-16T18:31:23Z",
+  "title": "Design System: Comic Scroller",
+  "extensions": {
+    "colorMeta": {
+      "ink": {
+        "role": "neutral",
+        "displayName": "Slate Ink",
+        "canonical": "#0F172A",
+        "tonalRamp": ["#020617", "#0F172A", "#1E293B", "#334155", "#475569", "#64748B", "#94A3B8", "#CBD5E1"]
+      },
+      "ink-muted": {
+        "role": "neutral",
+        "displayName": "Muted Slate",
+        "canonical": "#64748B",
+        "tonalRamp": ["#0F172A", "#1E293B", "#334155", "#475569", "#64748B", "#94A3B8", "#CBD5E1", "#E2E8F0"]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Paper White",
+        "canonical": "#FFFFFF",
+        "tonalRamp": ["#CBD5E1", "#E2E8F0", "#EEF2F7", "#F1F5F9", "#F8FAFC", "#FBFCFE", "#FFFFFF", "#FFFFFF"]
+      },
+      "paper-soft": {
+        "role": "neutral",
+        "displayName": "Soft Paper",
+        "canonical": "#F8FAFC",
+        "tonalRamp": ["#CBD5E1", "#E2E8F0", "#EEF2F7", "#F1F5F9", "#F8FAFC", "#FBFCFE", "#FFFFFF", "#FFFFFF"]
+      },
+      "paper-wash": {
+        "role": "neutral",
+        "displayName": "Washed Paper",
+        "canonical": "#EEF2F7",
+        "tonalRamp": ["#94A3B8", "#CBD5E1", "#D6DEE6", "#E2E8F0", "#EEF2F7", "#F1F5F9", "#F8FAFC", "#FFFFFF"]
+      },
+      "primary": {
+        "role": "primary",
+        "displayName": "Reader Blue",
+        "canonical": "#2563EB",
+        "tonalRamp": ["#0B1D4D", "#12357A", "#1E40AF", "#1D4ED8", "#2563EB", "#60A5FA", "#93C5FD", "#DBEAFE"]
+      },
+      "danger-text": {
+        "role": "secondary",
+        "displayName": "Delete Red",
+        "canonical": "#B91C1C",
+        "tonalRamp": ["#450A0A", "#7F1D1D", "#991B1B", "#B91C1C", "#DC2626", "#EF4444", "#FCA5A5", "#FEE2E2"]
+      },
+      "success-bg": {
+        "role": "secondary",
+        "displayName": "Success Wash",
+        "canonical": "#F0FDF4",
+        "tonalRamp": ["#052E16", "#166534", "#16A34A", "#86EFAC", "#BBF7D0", "#DCFCE7", "#F0FDF4", "#F7FEF9"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Manage page title only."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Section headings and reader terminal-state titles."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Series titles, popup title, and dialog titles."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Descriptions, summaries, settings copy, and notices."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Buttons, badges, chips, and compact metadata."
+      }
+    },
+    "shadows": [
+      {
+        "name": "panel-ambient",
+        "value": "0 1px 2px rgba(15, 23, 42, 0.04), 0 16px 40px rgba(15, 23, 42, 0.04)",
+        "purpose": "Default panel and dialog lift."
+      },
+      {
+        "name": "popup-ambient",
+        "value": "0 1px 2px rgba(15, 23, 42, 0.03), 0 10px 24px rgba(15, 23, 42, 0.03)",
+        "purpose": "Lower lift for the compact browser popup."
+      },
+      {
+        "name": "reader-page-ambient",
+        "value": "0 1px 2px rgba(15, 23, 42, 0.04), 0 18px 40px rgba(15, 23, 42, 0.05)",
+        "purpose": "Comic page frame lift inside the reader."
+      },
+      {
+        "name": "tab-lift",
+        "value": "0 -1px 0 rgba(255, 255, 255, 0.8), 0 10px 24px rgba(15, 23, 42, 0.06)",
+        "purpose": "Active tab lift in default tab bars."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-fast",
+        "value": "150ms ease",
+        "purpose": "Default color and border state transitions."
+      },
+      {
+        "name": "ripple",
+        "value": "350ms ease-in-out",
+        "purpose": "Icon button ripple feedback."
+      },
+      {
+        "name": "loading-spinner",
+        "value": "2s linear rotate, 1.5s ease-in-out dash",
+        "purpose": "Indeterminate loading in reader and list placeholders."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Compact primary action for reading, import, and focused commands.",
+      "html": "<button class=\"ds-btn-primary\">閱讀</button>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;border-radius:8px;padding:8px 14px;border:1px solid rgba(37,99,235,.16);background:#2563EB;color:#FFFFFF;font:500 12px/1.4 Inter,ui-sans-serif,system-ui,sans-serif;transition:background-color 150ms ease,color 150ms ease,border-color 150ms ease;cursor:pointer}.ds-btn-primary:hover{background:#1D4ED8}.ds-btn-primary:focus-visible{outline:2px solid #2563EB;outline-offset:2px}.ds-btn-primary:disabled{cursor:not-allowed;opacity:.5}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Neutral action for management, cancel, and lower-priority commands.",
+      "html": "<button class=\"ds-btn-secondary\">管理</button>",
+      "css": ".ds-btn-secondary{display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;border-radius:8px;padding:8px 14px;border:1px solid rgba(15,23,42,.08);background:#FFFFFF;color:rgba(15,23,42,.7);font:500 12px/1.4 Inter,ui-sans-serif,system-ui,sans-serif;transition:background-color 150ms ease,color 150ms ease,border-color 150ms ease;cursor:pointer}.ds-btn-secondary:hover{background:#F8FAFC}.ds-btn-secondary:focus-visible{outline:2px solid #2563EB;outline-offset:2px}.ds-btn-secondary:disabled{cursor:not-allowed;opacity:.5}"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Destructive action with a quiet red wash.",
+      "html": "<button class=\"ds-btn-danger\">重置資料</button>",
+      "css": ".ds-btn-danger{display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;border-radius:8px;padding:8px 14px;border:1px solid rgba(239,68,68,.12);background:#FEF2F2;color:#B91C1C;font:500 12px/1.4 Inter,ui-sans-serif,system-ui,sans-serif;transition:background-color 150ms ease,color 150ms ease,border-color 150ms ease;cursor:pointer}.ds-btn-danger:hover{background:#FEE2E2}.ds-btn-danger:focus-visible{outline:2px solid #2563EB;outline-offset:2px}.ds-btn-danger:disabled{cursor:not-allowed;opacity:.5}"
+    },
+    {
+      "name": "Icon Button",
+      "kind": "button",
+      "refersTo": "icon-button",
+      "description": "Reader toolbar control for navigation, fullscreen, follow, and chapter list.",
+      "html": "<button class=\"ds-icon-button\" aria-label=\"下一章\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M9 6l6 6-6 6z\"/></svg></button>",
+      "css": ".ds-icon-button{position:relative;display:inline-flex;width:36px;height:36px;align-items:center;justify-content:center;overflow:hidden;border-radius:12px;padding:4px;border:1px solid rgba(15,23,42,.08);background:#FFFFFF;color:rgba(15,23,42,.6);transition:background-color 150ms ease,border-color 150ms ease,color 150ms ease;cursor:pointer}.ds-icon-button svg{width:20px;height:20px;fill:currentColor}.ds-icon-button:hover:not(:disabled){background:#F8FAFC;border-color:rgba(15,23,42,.12)}.ds-icon-button:focus-visible{outline:2px solid #2563EB;outline-offset:2px}.ds-icon-button:disabled{cursor:not-allowed;background:rgba(238,242,247,.9);color:rgba(15,23,42,.25)}"
+    },
+    {
+      "name": "Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Outer surface for popup and major framed UI.",
+      "html": "<section class=\"ds-panel\"><header class=\"ds-panel-header\">更新 <span>3</span></header><div class=\"ds-panel-body\">Panel content</div></section>",
+      "css": ".ds-panel{display:flex;flex-direction:column;overflow:hidden;border-radius:22px;border:1px solid rgba(15,23,42,.08);background:#FFFFFF;color:#0F172A;box-shadow:0 1px 2px rgba(15,23,42,.04),0 16px 40px rgba(15,23,42,.04);font-family:Inter,ui-sans-serif,system-ui,sans-serif}.ds-panel-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px;border-bottom:1px solid rgba(15,23,42,.1);font-weight:600;font-size:17px}.ds-panel-header span{display:inline-flex;min-width:32px;justify-content:center;border-radius:10px;padding:4px 10px;border:1px solid rgba(15,23,42,.08);background:#EEF2F7;color:rgba(15,23,42,.6);font-size:12px;font-weight:500}.ds-panel-body{padding:16px}"
+    },
+    {
+      "name": "Series Row",
+      "kind": "card",
+      "refersTo": "row-card",
+      "description": "Signature library row for popup and manage lists.",
+      "html": "<article class=\"ds-series-row\"><div class=\"ds-series-visual\"><span>DM5</span><div>作</div></div><div class=\"ds-series-copy\"><h3>作品標題</h3><p>上次閱讀：第 12 話</p><small>最新章節：第 18 話</small></div><button class=\"ds-btn-primary\">繼續</button></article>",
+      "css": ".ds-series-row{display:flex;align-items:flex-start;gap:12px;border-radius:12px;padding:12px 16px;border:1px solid rgba(15,23,42,.08);background:#FFFFFF;color:#0F172A;font-family:Inter,ui-sans-serif,system-ui,sans-serif;transition:background-color 150ms ease}.ds-series-row:hover{background:#F8FAFC}.ds-series-visual{display:flex;width:52px;flex:none;flex-direction:column;align-items:center;gap:6px}.ds-series-visual span{max-width:100%;overflow:hidden;text-overflow:ellipsis;font-size:11px;font-weight:500;line-height:16px;letter-spacing:.08em;text-transform:uppercase;color:rgba(15,23,42,.4)}.ds-series-visual div{display:flex;width:44px;height:44px;align-items:center;justify-content:center;border-radius:8px;background:#E2E8F0;color:rgba(15,23,42,.4);font-weight:600}.ds-series-copy{min-width:0;flex:1}.ds-series-copy h3{margin:0;color:#0F172A;font-size:15px;line-height:20px;font-weight:600}.ds-series-copy p{margin:2px 0 0;color:rgba(15,23,42,.7);font-size:13px;line-height:20px}.ds-series-copy small{display:block;margin-top:2px;color:rgba(15,23,42,.5);font-size:13px;line-height:20px}.ds-btn-primary{align-self:center;border-radius:8px;border:1px solid rgba(37,99,235,.16);background:#2563EB;color:#FFFFFF;padding:8px 14px;font:500 12px/1.4 Inter,ui-sans-serif,system-ui,sans-serif}"
+    },
+    {
+      "name": "Manage Tab",
+      "kind": "nav",
+      "refersTo": "tab-active",
+      "description": "Manage-page tab with optional count badge.",
+      "html": "<button class=\"ds-tab ds-tab-active\" role=\"tab\" aria-selected=\"true\">追蹤 <span>12</span></button>",
+      "css": ".ds-tab{display:inline-flex;height:44px;min-width:112px;align-items:center;justify-content:center;gap:8px;border:0;border-radius:14px 14px 0 0;background:rgba(255,255,255,.45);color:rgba(15,23,42,.6);padding:0 20px;font:500 14px/1.4 Inter,ui-sans-serif,system-ui,sans-serif;transition:background-color 150ms ease,color 150ms ease;cursor:pointer}.ds-tab span{display:inline-flex;min-width:22px;align-items:center;justify-content:center;border-radius:999px;padding:2px 8px;background:rgba(15,23,42,.08);color:rgba(15,23,42,.6);font-size:11px;font-weight:600;line-height:16px}.ds-tab:hover{background:rgba(255,255,255,.72);color:#0F172A}.ds-tab:focus-visible{outline:2px solid #2563EB;outline-offset:2px}.ds-tab-active{background:#FFFFFF;color:#0F172A}.ds-tab-active span{background:rgba(37,99,235,.12);color:#1D4ED8}"
+    },
+    {
+      "name": "Confirm Dialog",
+      "kind": "custom",
+      "refersTo": "dialog",
+      "description": "Focused confirmation surface for destructive local data actions.",
+      "html": "<div class=\"ds-dialog\"><div class=\"ds-dialog-body\"><h2>移除閱讀紀錄</h2><p>確定移除這部作品的閱讀紀錄嗎？追蹤、更新與作品資料會保留。</p></div><footer><button class=\"ds-btn-secondary\">取消</button><button class=\"ds-btn-danger\">移除紀錄</button></footer></div>",
+      "css": ".ds-dialog{display:flex;width:min(92vw,520px);flex-direction:column;overflow:hidden;border-radius:24px;border:1px solid rgba(15,23,42,.08);background:#FFFFFF;color:#0F172A;box-shadow:0 1px 2px rgba(15,23,42,.04),0 16px 40px rgba(15,23,42,.04);font-family:Inter,ui-sans-serif,system-ui,sans-serif}.ds-dialog-body{display:flex;flex-direction:column;gap:12px;padding:20px}.ds-dialog h2{margin:0;font-size:16px;font-weight:600;line-height:1.35;letter-spacing:-.01em}.ds-dialog p{margin:0;color:rgba(15,23,42,.7);font-size:13px;line-height:24px}.ds-dialog footer{display:flex;justify-content:flex-end;gap:12px;border-top:1px solid rgba(15,23,42,.1);padding:16px 20px}.ds-btn-secondary,.ds-btn-danger{border-radius:8px;padding:8px 14px;font:500 12px/1.4 Inter,ui-sans-serif,system-ui,sans-serif}.ds-btn-secondary{border:1px solid rgba(15,23,42,.08);background:#FFFFFF;color:rgba(15,23,42,.7)}.ds-btn-danger{border:1px solid rgba(239,68,68,.12);background:#FEF2F2;color:#B91C1C}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Clear Reading Desk",
+    "overview": "Comic Scroller is a product interface for staying in a manga reading flow. The system should feel like a cleared desk beside the page: bright enough for quick orientation, quiet enough to disappear once reading starts, and structured enough that local data actions feel trustworthy.\n\nThe primary extension UI is restrained by design. Cool paper surfaces, slate text, and one blue accent support the PRODUCT.md personality: \"乾淨、直觀、明亮.\" Decoration must never compete with comic pages, chapter navigation, or library decisions. The GitHub Pages site may be more expressive, but extension surfaces are the normative design source.\n\nThis system explicitly rejects cluttered, overly promotional, visually heavy, or decorative UI that competes with the comic pages themselves.",
+    "keyCharacteristics": [
+      "Restrained light product surfaces with one action blue.",
+      "Compact, readable Inter-based hierarchy.",
+      "Rounded but familiar controls, usually 8-24px.",
+      "Low, ambient elevation and thin slate borders.",
+      "Explicit destructive-action language and predictable state changes."
+    ],
+    "rules": [
+      {
+        "name": "The One Blue Rule",
+        "body": "Reader Blue is for action, current selection, focus, and meaningful state. It is not decoration.",
+        "section": "colors"
+      },
+      {
+        "name": "The Paper Stack Rule",
+        "body": "Depth comes from moving between Washed Paper, Soft Paper, and Paper White before reaching for shadows.",
+        "section": "colors"
+      },
+      {
+        "name": "The Slate Legibility Rule",
+        "body": "Text below `ink/60` is metadata only. Anything required to complete a task must be at least the visual strength of `ink/60`.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Family Rule",
+        "body": "Extension UI uses one sans family. Do not introduce display fonts, serif headings, or mono-forward styling in product surfaces.",
+        "section": "typography"
+      },
+      {
+        "name": "The Compact Title Rule",
+        "body": "Cards, rows, dialogs, and toolbars keep headings at 15-18px. Hero-scale type belongs only to the website, never to reader, popup, or manage UI.",
+        "section": "typography"
+      },
+      {
+        "name": "The Border-First Rule",
+        "body": "Use a 1px slate hairline and a surface shift before adding a shadow.",
+        "section": "elevation"
+      },
+      {
+        "name": "The No Heavy Shadow Rule",
+        "body": "Extension surfaces must not use dark material-style shadows from the legacy Tailwind `paper-*` scale unless the whole component vocabulary is being redesigned.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do treat extension UI as the source of truth for the product design system.",
+      "Do use Reader Blue only for primary actions, active/current state, focus, and meaningful status.",
+      "Do preserve the UI flow from PRODUCT.md: \"Reader first: page images and chapter flow take priority over interface decoration.\"",
+      "Do make destructive data actions explicit, including what is preserved and what is removed.",
+      "Do keep component vocabulary consistent across reader, popup, and manage surfaces.",
+      "Do favor thin borders, tonal shifts, and compact type before adding more shadow or color.",
+      "Do maintain visible focus states and WCAG AA contrast for task-critical text."
+    ],
+    "donts": [
+      "Don't create cluttered, overly promotional, visually heavy, or decorative UI that competes with comic pages.",
+      "Don't introduce display fonts, editorial typography, or marketing-page scale into extension surfaces.",
+      "Don't use side-stripe borders as a colored accent on cards, list items, callouts, or alerts.",
+      "Don't use gradient text, decorative glassmorphism, hero metrics, or identical card grids in product UI.",
+      "Don't add new color families for routine states when existing slate, paper, blue, red, and green roles cover the job.",
+      "Don't make modals the first answer for non-destructive flows; inline or progressive controls should be exhausted first.",
+      "Don't rely on low-opacity slate text for required actions, errors, or labels users must read to complete a task."
+    ]
+  }
+}
