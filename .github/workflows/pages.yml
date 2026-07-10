@@ -23,21 +23,21 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version-file: .nvmrc
 
       - name: Enable Corepack
         run: corepack enable
-
-      - name: Activate Yarn 4
-        run: corepack prepare yarn@4.13.0 --activate
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
       - name: Install dependencies
         run: yarn install --immutable
+
+      - name: Check site
+        run: yarn site:check
 
       - name: Build site
         run: yarn site:build
