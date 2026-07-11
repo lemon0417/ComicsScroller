@@ -127,11 +127,13 @@ UI → Actions → Epics → Services → IndexedDB/Network → Actions
   - 初始載入與每次跳章都會遞增 reader generation；scroll timer、章節預載、pending gate 與已讀持久化只允許目前 generation 更新畫面，快速跳章以最後一次選擇為準
   - reader 圖片 record 會追蹤 request source、loading failure 與 retry 狀態；自動 / 手動重試由 epics 驅動，不放在 component 內自行排程
   - 是否允許向前預載章節，由 `canPreloadPreviousChapter` 顯式控制，不使用 sentinel index 表示流程狀態
-  - reader mount / `librarySignal` sync 只需確認作品是否存在與是否已追蹤時，優先使用 `getReaderSeriesSyncState()`
+  - reader 初始作品資料由 reader flow 的 `applyReaderSeriesState()` hydrate；後續 `librarySignal` 由 `readerSyncEpic` 單一訂閱，UI 不直接 query repository 或監聽 storage
+  - `readerSyncEpic` 收到相關 signal、只需確認作品是否存在與是否已追蹤時，使用 `getReaderSeriesSyncState()`；快速連續 signal 以最後一次 query 為準
   - 只有真的需要完整 chapter list / read state 時，才使用 `getReaderSeriesState()`
   - `applyReadProgress()` 只更新閱讀進度與 updates，不應重寫章節快取；章節快取刷新由 metadata/background 流程負責
 - Background：
   - `src/background.ts` 只保留 MV3 listener wiring
+  - listener wiring 必須收斂非同步 rejection；需要保持 message channel 的 handler 在成功與失敗時都必須回覆
   - 更新檢查、安裝處理、通知點擊、ping 回應、reader redirect 解析集中在 `src/infra/services/background.ts`
   - 訂閱更新檢查會依 `subscriptions.checkedAt` 由舊到新取批次輪詢
   - 每輪 background refresh 使用固定上限並發與單筆 metadata fetch timeout，避免某個慢站拖住整輪 service worker 工作

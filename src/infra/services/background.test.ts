@@ -304,6 +304,28 @@ describe("background service", () => {
     });
   });
 
+  it("responds when a dev ping background summary fails", async () => {
+    const sendResponse = jest.fn();
+    const runSummary = jest.fn().mockRejectedValue(new Error("boom"));
+
+    const handled = handlePingBackgroundMessage(
+      { msg: "PING_BACKGROUND" },
+      sendResponse,
+      {
+        isDev: true,
+        runBackgroundUpdateSummary: runSummary as any,
+      },
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(handled).toBe(true);
+    expect(sendResponse).toHaveBeenCalledWith({
+      ok: false,
+      reason: "update-check-failed",
+    });
+  });
+
   it("resolves reader redirects and notification clicks", () => {
     const openTab = jest.fn();
     const clearNotification = jest.fn();

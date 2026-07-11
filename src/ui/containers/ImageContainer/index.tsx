@@ -178,6 +178,8 @@ function ImageContainer({
   const appliedEvictionRestoreSequenceRef = useRef<number | null>(null);
   const lastScrollTopRef = useRef(0);
   const liveScrollTopRef = useRef(0);
+  const imageResultRef = useRef(imageResult);
+  const resolvedRowHeightsRef = useRef<number[]>([]);
   const resolvedRowHeights = useMemo(
     () =>
       imageResult.map(
@@ -197,6 +199,33 @@ function ImageContainer({
         : resolvedRowHeights[index] || READER_DEFAULT_ROW_HEIGHT,
     [hasPendingChapterGate, imageResult.length, resolvedRowHeights],
   );
+  const hasImageRows = imageResult.length > 0;
+  const captureScrollAnchor = useCallback(() => {
+    const listElement = listRef.current?.element;
+    if (!listElement) {
+      return;
+    }
+
+    liveScrollTopRef.current = listElement.scrollTop;
+    const visibleRange = lastVisibleRangeRef.current;
+    if (visibleRange.begin < 0) {
+      return;
+    }
+    const nextAnchorSnapshot = getAnchorSnapshot({
+      imageResult: imageResultRef.current,
+      listElement,
+      rowHeights: resolvedRowHeightsRef.current,
+      visibleRange,
+    });
+    if (nextAnchorSnapshot) {
+      anchorSnapshotRef.current = nextAnchorSnapshot;
+    }
+  }, []);
+
+  useLayoutEffect(() => {
+    imageResultRef.current = imageResult;
+    resolvedRowHeightsRef.current = resolvedRowHeights;
+  }, [imageResult, resolvedRowHeights]);
 
   const handleRowsRendered = useCallback(
     (visibleRows: { startIndex: number; stopIndex: number }) => {
@@ -350,36 +379,22 @@ function ImageContainer({
   ]);
 
   useLayoutEffect(() => {
+    captureScrollAnchor();
+  }, [captureScrollAnchor, imageResult, resolvedRowHeights]);
+
+  useLayoutEffect(() => {
     const listElement = listRef.current?.element;
-    if (!listElement) {
+    if (!hasImageRows || !listElement) {
       return undefined;
     }
-
-    const captureScrollAnchor = () => {
-      liveScrollTopRef.current = listElement.scrollTop;
-      const visibleRange = lastVisibleRangeRef.current;
-      if (visibleRange.begin < 0) {
-        return;
-      }
-      const nextAnchorSnapshot = getAnchorSnapshot({
-        imageResult,
-        listElement,
-        rowHeights: resolvedRowHeights,
-        visibleRange,
-      });
-      if (nextAnchorSnapshot) {
-        anchorSnapshotRef.current = nextAnchorSnapshot;
-      }
-    };
 
     listElement.addEventListener("scroll", captureScrollAnchor, {
       passive: true,
     });
-    captureScrollAnchor();
     return () => {
       listElement.removeEventListener("scroll", captureScrollAnchor);
     };
-  }, [imageResult, resolvedRowHeights]);
+  }, [captureScrollAnchor, hasImageRows]);
 
   if (imageResult.length === 0) {
     pendingAnchorRestoreRef.current = null;

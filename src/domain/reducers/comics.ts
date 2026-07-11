@@ -128,8 +128,8 @@ type Action = {
 export const MAX_IMAGE_AUTO_RETRY_COUNT = 2;
 
 const initialState: ComicsState = {
-  innerHeight: typeof window === "undefined" ? 0 : window.innerHeight,
-  innerWidth: typeof window === "undefined" ? 0 : window.innerWidth,
+  innerHeight: 0,
+  innerWidth: 0,
   site: "",
   seriesKey: "",
   comicsID: "",

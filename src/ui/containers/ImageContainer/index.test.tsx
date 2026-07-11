@@ -267,4 +267,67 @@ describe("ImageContainer", () => {
     expect(screen.getByText("載入中...")).toBeInTheDocument();
     expect(updateVisibleImageRange).toHaveBeenCalledWith(0, 0);
   });
+
+  it("keeps one scroll listener while image data changes", () => {
+    const commonProps = {
+      chapterLoadStatus: "ready" as const,
+      clearLeadingEvictionRestore: jest.fn(),
+      fetchChapter: jest.fn(),
+      hasPendingChapterGate: false,
+      imageListKey: "m1",
+      innerHeight: 900,
+      leadingEvictionRestore: null,
+      requestedChapter: "m100",
+      updateVisibleImageRange: jest.fn(),
+    };
+    const { container, rerender, unmount } = render(
+      <TestImageContainer
+        {...commonProps}
+        imageResult={[10, 11]}
+        imageRowHeights={[132, 132]}
+      />,
+    );
+    const listElement = container.querySelector(
+      ".reader-canvas",
+    ) as HTMLDivElement;
+    const addEventListener = jest.spyOn(listElement, "addEventListener");
+    const removeEventListener = jest.spyOn(listElement, "removeEventListener");
+
+    rerender(
+      <TestImageContainer
+        {...commonProps}
+        imageResult={[10, 11, 12]}
+        imageRowHeights={[132, 164, 200]}
+      />,
+    );
+
+    expect(
+      addEventListener.mock.calls.filter(
+        ([event, listener]) =>
+          event === "scroll" &&
+          typeof listener === "function" &&
+          listener.name === "captureScrollAnchor",
+      ),
+    ).toHaveLength(0);
+    expect(
+      removeEventListener.mock.calls.filter(
+        ([event, listener]) =>
+          event === "scroll" &&
+          typeof listener === "function" &&
+          listener.name === "captureScrollAnchor",
+      ),
+    ).toHaveLength(0);
+
+    const removeCountBeforeUnmount = removeEventListener.mock.calls.filter(
+      ([event]) => event === "scroll",
+    ).length;
+
+    unmount();
+
+    expect(
+      removeEventListener.mock.calls.filter(([event]) => event === "scroll"),
+    ).toHaveLength(removeCountBeforeUnmount + 1);
+    addEventListener.mockRestore();
+    removeEventListener.mockRestore();
+  });
 });

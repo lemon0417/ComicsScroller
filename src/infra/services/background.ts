@@ -337,9 +337,13 @@ export function handlePingBackgroundMessage(
 
   const now = options.now || (() => Date.now());
   const runSummary = options.runBackgroundUpdateSummary || runBackgroundUpdateSummary;
-  runSummary().then((summary) => {
-    sendResponse({ ok: true, at: now(), summary });
-  });
+  runSummary()
+    .then((summary) => {
+      sendResponse({ ok: true, at: now(), summary });
+    })
+    .catch(() => {
+      sendResponse({ ok: false, reason: "update-check-failed" });
+    });
   return true;
 }
 

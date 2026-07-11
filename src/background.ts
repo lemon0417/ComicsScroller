@@ -7,6 +7,7 @@ import {
   runBackgroundUpdateSummary,
 } from "@infra/services/background";
 import { EXTENSION_RELEASE_CHECK_INTERVAL_MINUTES } from "@infra/services/extensionRelease";
+import { devLog } from "@utils/devLog";
 
 const isDev = import.meta.env.MODE !== "production";
 const LIBRARY_REFRESH_ALARM_NAME = "comcisScroller";
@@ -23,15 +24,24 @@ function ensureBackgroundAlarms() {
   });
 }
 
+function runBackgroundTask(scope: string, task: () => Promise<unknown>) {
+  void task().catch((error: unknown) => {
+    devLog(scope, error);
+  });
+}
+
 chrome.action.setBadgeBackgroundColor({ color: "#F00" });
 
 chrome.notifications.onClicked.addListener((id: string) => {
   handleNotificationClick(id);
 });
 
-chrome.runtime.onInstalled.addListener(async (details: { reason?: string }) => {
-  await handleExtensionInstalled(details);
-  ensureBackgroundAlarms();
+chrome.runtime.onInstalled.addListener((details: { reason?: string }) => {
+  void handleExtensionInstalled(details)
+    .catch((error: unknown) => {
+      devLog("background:install-failed", error);
+    })
+    .finally(ensureBackgroundAlarms);
 });
 
 chrome.runtime.onStartup.addListener(() => {
@@ -71,11 +81,15 @@ ensureBackgroundAlarms();
 
 chrome.alarms.onAlarm.addListener((alarm: { name?: string }) => {
   if (alarm.name === LIBRARY_REFRESH_ALARM_NAME) {
-    void runBackgroundUpdateSummary();
+    runBackgroundTask("background:update-summary-failed", () =>
+      runBackgroundUpdateSummary(),
+    );
     return;
   }
 
   if (alarm.name === EXTENSION_RELEASE_ALARM_NAME) {
-    void runBackgroundReleaseCheck();
+    runBackgroundTask("background:release-check-failed", () =>
+      runBackgroundReleaseCheck(),
+    );
   }
 });

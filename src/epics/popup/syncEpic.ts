@@ -6,6 +6,7 @@ import {
 import {
   hydratePopupFeed,
   setExtensionReleaseNotice,
+  setPopupNotice,
 } from "@domain/reducers/popupState";
 import {
   getExtensionReleaseNotice,
@@ -16,22 +17,27 @@ import {
   subscribeToLibrarySignal,
 } from "@infra/services/library/popup";
 import { ofType } from "redux-observable";
-import { merge, Observable } from "rxjs";
-import { exhaustMap } from "rxjs/operators";
+import { from, merge, Observable, of } from "rxjs";
+import { catchError, exhaustMap, map, switchMap } from "rxjs/operators";
 
+import { observeLibrarySignals } from "../librarySignal";
 import type { PopupEpic } from "../types";
 
+const POPUP_LOAD_ERROR_MESSAGE = "目前無法載入書庫資料，請稍後再試。";
+
 function observeLibraryChanges(view?: PopupDataView) {
-  return new Observable<ReturnType<typeof hydratePopupFeed>>((subscriber) => {
-    const unsubscribe = subscribeToLibrarySignal(() => {
-      getPopupFeedSnapshot(
-        view === "popup" ? { updateLimit: POPUP_UPDATE_LIMIT } : {},
-      ).then((feed) => {
-        subscriber.next(hydratePopupFeed(feed, "load"));
-      });
-    });
-    return unsubscribe;
-  });
+  return observeLibrarySignals(subscribeToLibrarySignal).pipe(
+    switchMap(() =>
+      from(
+        getPopupFeedSnapshot(
+          view === "popup" ? { updateLimit: POPUP_UPDATE_LIMIT } : {},
+        ),
+      ).pipe(
+        map((feed) => hydratePopupFeed(feed, "load")),
+        catchError(() => of(setPopupNotice(POPUP_LOAD_ERROR_MESSAGE))),
+      ),
+    ),
+  );
 }
 
 function observeExtensionReleaseChanges() {

@@ -2,7 +2,6 @@ export const FETCH_CHAPTER = "FETCH_CHAPTER";
 export const FETCH_IMAGE_SRC = "FETCH_IMAGE_SRC";
 export const FETCH_IMG_LIST = "FETCH_IMG_LIST";
 export const UPDATE_READ = "UPDATE_READ";
-export const START_RESIZE_EPIC = "START_RESIZE_EPIC";
 export const NAVIGATE_CHAPTER = "NAVIGATE_CHAPTER";
 export const TOGGLE_SUBSCRIBE = "TOGGLE_SUBSCRIBE";
 export const UPDATE_VISIBLE_IMAGE_RANGE = "UPDATE_VISIBLE_IMAGE_RANGE";
@@ -25,10 +24,6 @@ export function fetchImgList(index: number) {
 
 export function updateRead(index: number) {
   return { type: UPDATE_READ, index };
-}
-
-export function startResize() {
-  return { type: START_RESIZE_EPIC };
 }
 
 export function navigateChapter(index: number) {

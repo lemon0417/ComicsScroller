@@ -7,14 +7,6 @@ jest.mock("react-redux", () => ({
 
 import App from "./index";
 
-jest.mock("@infra/services/library/reader", () => ({
-  getReaderSeriesSyncState: jest.fn(async () => ({
-    exists: true,
-    subscribed: true,
-  })),
-  subscribeToLibrarySignal: jest.fn(() => () => undefined),
-}));
-
 jest.mock("@containers/ImageContainer", () => ({
   __esModule: true,
   default: () => <div data-testid="image-container" />,
@@ -56,11 +48,8 @@ describe("App", () => {
   });
 
   it("renders accessible reader header controls", () => {
-    const startResize = jest.fn();
-
     const { container } = render(
       <TestApp
-        startResize={startResize}
         fetchChapter={jest.fn()}
         updateSubscribe={jest.fn()}
         toggleSubscribe={jest.fn()}
@@ -79,7 +68,6 @@ describe("App", () => {
       />,
     );
 
-    expect(startResize).toHaveBeenCalled();
     expect(
       screen.getByRole("button", { name: "開啟章節列表" }),
     ).toBeInTheDocument();

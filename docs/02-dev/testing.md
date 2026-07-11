@@ -16,7 +16,7 @@
 
 ## 任務對應測試
 - Reader UI / header / zoom：`src/ui/containers/App/index.test.tsx`、`src/ui/containers/ImageContainer/index.test.tsx`
-- Reader state / scroll / preload：`src/domain/reducers/comics.test.ts`、`src/epics/scrollEpic.test.ts`、`src/epics/sites/readerFlow.test.ts`
+- Reader state / scroll / preload / library signal：`src/domain/reducers/comics.test.ts`、`src/epics/scrollEpic.test.ts`、`src/epics/readerSyncEpic.test.ts`、`src/epics/sites/readerFlow.test.ts`
 - Popup / Manage：`src/epics/popup/*.test.ts`、`src/ui/containers/PopupApp/index.test.tsx`、`src/ui/containers/ManageApp/index.test.tsx`
 - Library repository：`src/infra/services/library/*.test.ts`
 - Background：`src/infra/services/background.test.ts`、`src/infra/services/extensionRelease.test.ts`
@@ -35,6 +35,7 @@
 - repository 模組測試可以 mock `shared.ts` 的 IndexedDB primitive，重點驗證 query / mutation 語意與 signal payload
 - `queries.ts` 測試應優先驗證最終 query model，例如 popup feed，不要再用 `LibrarySnapshotV2` 當預期值
 - reader 測試若只是同步作品存在與追蹤狀態，優先 mock `getReaderSeriesSyncState()`
+- reader / popup signal 測試需覆蓋 unsubscribe、query rejection 後恢復，以及快速 signal 不得讓舊結果覆蓋新結果
 - reader 測試若真的需要完整 chapter list / read state，再 mock `getReaderSeriesState()`
 - 不要再分別 mock `getSeriesSnapshot()` 和 `isSeriesSubscribedByKey()`
 - 若測試需要 schema constants / row types，直接從 `@infra/services/library/schema` 匯入，不要再要求 facade 重新暴露 internal detail

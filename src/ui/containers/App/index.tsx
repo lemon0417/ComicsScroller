@@ -4,7 +4,6 @@ import ImageContainer from "@containers/ImageContainer";
 import {
   fetchChapter,
   navigateChapter,
-  startResize,
   toggleSubscribe,
 } from "@domain/actions/reader";
 import {
@@ -14,7 +13,6 @@ import {
   type ReaderZoomTarget,
   resetReaderImageScale,
   setReaderZoomTarget,
-  updateSubscribe,
 } from "@domain/reducers/comics";
 import {
   getReaderImageScalePercent,
@@ -28,10 +26,6 @@ import FullscreenEnterIcon from "@imgs/fullscreen-enter.svg?react";
 import FullscreenExitIcon from "@imgs/fullscreen-exit.svg?react";
 import MenuIcon from "@imgs/menu.svg?react";
 import TagIcon from "@imgs/tag.svg?react";
-import {
-  getReaderSeriesSyncState,
-  subscribeToLibrarySignal,
-} from "@infra/services/library/reader";
 import { devLog } from "@utils/devLog";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { connect } from "react-redux";
@@ -60,10 +54,8 @@ type AppDispatchProps = {
   fetchChapter: typeof fetchChapter;
   navigateChapter: typeof navigateChapter;
   resetReaderImageScale: typeof resetReaderImageScale;
-  startResize: typeof startResize;
   setReaderZoomTarget: typeof setReaderZoomTarget;
   toggleSubscribe: typeof toggleSubscribe;
-  updateSubscribe: typeof updateSubscribe;
 };
 
 type AppProps = AppStateProps & AppDispatchProps;
@@ -126,51 +118,12 @@ function App(props: AppProps) {
     resetReaderImageScale: resetReaderImageScaleProp = () => undefined,
     seriesKey,
     site,
-    startResize: startResizeProp,
     setReaderZoomTarget: setReaderZoomTargetProp = () => undefined,
     subscribe,
     title,
     toggleSubscribe: toggleSubscribeProp,
-    updateSubscribe: updateSubscribeProp,
     url,
   } = props;
-
-  const syncLibraryState = useCallback(async () => {
-    if (!seriesKey) return;
-    const { exists, subscribed } = await getReaderSeriesSyncState(seriesKey);
-    if (!exists) {
-      chrome.tabs.getCurrent((tab) => {
-        if (tab?.id) {
-          chrome.tabs.remove(tab.id);
-        }
-      });
-      return;
-    }
-    updateSubscribeProp(subscribed);
-  }, [seriesKey, updateSubscribeProp]);
-
-  useEffect(() => {
-    startResizeProp();
-  }, [startResizeProp]);
-
-  useEffect(() => {
-    void syncLibraryState();
-  }, [syncLibraryState]);
-
-  useEffect(() => {
-    const unsubscribeLibrary = subscribeToLibrarySignal((signal) => {
-      if (!seriesKey) return;
-      if (
-        signal.seriesKeys?.length &&
-        !signal.seriesKeys.includes(seriesKey) &&
-        !signal.scopes.includes("subscriptions")
-      ) {
-        return;
-      }
-      void syncLibraryState();
-    });
-    return unsubscribeLibrary;
-  }, [seriesKey, syncLibraryState]);
 
   useEffect(() => {
     if (hasFetchedInitialChapterRef.current) {
@@ -494,11 +447,9 @@ function mapStateToProps({ comics }: { comics: ComicsState }): AppStateProps {
 const connectedApp = connect(mapStateToProps, {
   adjustReaderImageScale,
   fetchChapter,
-  startResize,
   navigateChapter,
   resetReaderImageScale,
   setReaderZoomTarget,
-  updateSubscribe,
   toggleSubscribe,
 })(App);
 
