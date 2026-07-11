@@ -2,6 +2,7 @@ import {
   fetchChapter,
   imageLoadFailed,
   retryImage,
+  updateRead,
   updateVisibleImageRange,
 } from "@domain/actions/reader";
 import { READER_IMAGE_GAP } from "@domain/utils/readerLayout";
@@ -53,6 +54,8 @@ describe("comics reducer", () => {
       imageScaleOverrides: {
         0: 0.6,
       },
+      nextImageId: 2,
+      readerGeneration: 3,
       imageList: {
         result: [0, 1],
         entity: {
@@ -72,6 +75,14 @@ describe("comics reducer", () => {
     expect(nextState.readerZoomTarget).toBe("all");
     expect(nextState.selectedImageId).toBeNull();
     expect(nextState.imageScaleOverrides).toEqual({});
+    expect(nextState.nextImageId).toBe(2);
+    expect(nextState.readerGeneration).toBe(4);
+
+    const staleImageEventState = comics(
+      nextState,
+      updateImgType(1200, 0, "natural", 900, 1600) as any,
+    );
+    expect(staleImageEventState.imageList).toEqual({ result: [], entity: {} });
   });
 
   it("builds a canonical seriesKey when site and comicsID are set", () => {
@@ -386,6 +397,23 @@ describe("comics reducer", () => {
     expect(nextState.currentChapterTitle).toBe("Chapter 1");
   });
 
+  it("updates the visible chapter synchronously with read progress", () => {
+    let state = comics(undefined, { type: "@@INIT" } as any) as any;
+    state = comics(state, updateChapterList(["c2", "c1"]) as any);
+    state = comics(
+      state,
+      updateChapters({
+        c2: { title: "Chapter 2" },
+        c1: { title: "Chapter 1" },
+      }) as any,
+    );
+
+    const nextState = comics(state, updateRead(1) as any);
+
+    expect(nextState.chapterNowIndex).toBe(1);
+    expect(nextState.currentChapterTitle).toBe("Chapter 1");
+  });
+
   it("marks a chapter as ready after the tail readable image resolves", () => {
     let nextState = comics(
       comics(undefined, { type: "@@INIT" } as any) as any,
@@ -487,6 +515,7 @@ describe("comics reducer", () => {
         blockingChapterId: "c2",
         chapterId: "c1",
         chapterIndex: 0,
+        readerGeneration: 0,
         status: "queued",
         canPreloadPreviousChapter: true,
         imgList: [{ chapter: "c1", src: "https://example.com/c1-1.jpg" }],
@@ -537,6 +566,7 @@ describe("comics reducer", () => {
         blockingChapterId: "c2",
         chapterId: "c1",
         chapterIndex: 0,
+        readerGeneration: 0,
         status: "queued",
         canPreloadPreviousChapter: true,
         imgList: [{ chapter: "c1", src: "https://example.com/c1-1.jpg" }],
@@ -569,6 +599,7 @@ describe("comics reducer", () => {
         blockingChapterId: "c2",
         chapterId: "c1",
         chapterIndex: 0,
+        readerGeneration: 0,
         status: "queued",
         canPreloadPreviousChapter: true,
         imgList: [{ chapter: "c1", src: "https://example.com/c1-1.jpg" }],
@@ -602,6 +633,7 @@ describe("comics reducer", () => {
         blockingChapterId: "c2",
         chapterId: "c1",
         chapterIndex: 0,
+        readerGeneration: 0,
         status: "queued",
         canPreloadPreviousChapter: false,
         imgList: [{ chapter: "c1", src: "https://example.com/c1-1.jpg" }],
@@ -642,6 +674,7 @@ describe("comics reducer", () => {
         blockingChapterId: "c2",
         chapterId: "c1",
         chapterIndex: 0,
+        readerGeneration: 0,
         status: "queued",
         canPreloadPreviousChapter: true,
         imgList: [{ chapter: "c1", src: "https://example.com/c1-1.jpg" }],
@@ -664,6 +697,10 @@ describe("comics reducer", () => {
       imageScaleOverrides: {
         10: 0.8,
         12: 0.9,
+      },
+      readyChapters: {
+        c5: true,
+        c4: true,
       },
       imageList: {
         result: [10, 11, 12, 13, 14, 15, 16, 17],
@@ -694,11 +731,53 @@ describe("comics reducer", () => {
     expect(nextState.leadingEvictionRestore).toEqual({
       sequence: 1,
       firstRetainedImageId: 12,
-      removedScrollHeight: 200 + READER_IMAGE_GAP * 4,
+      removedScrollHeight: 180 + READER_IMAGE_GAP * 4,
     });
     expect(nextState.readerZoomTarget).toBe("all");
     expect(nextState.selectedImageId).toBeNull();
     expect(nextState.imageScaleOverrides).toEqual({ 12: 0.9 });
+    expect(nextState.readyChapters).toEqual({ c4: true });
+  });
+
+  it("keeps retained image ids unique when appending after a leading eviction", () => {
+    let state = comics(undefined, { type: "@@INIT" } as any) as any;
+    state = comics(
+      state,
+      updateChapterList(["c1", "c2", "c3", "c4", "c5"]) as any,
+    );
+
+    for (const chapter of ["c5", "c4", "c3", "c2"]) {
+      state = comics(
+        state,
+        concatImageList([
+          { chapter, src: `https://example.com/${chapter}.jpg` },
+        ]) as any,
+      );
+    }
+
+    state = comics(state, evictLeadingImageChapters(3) as any);
+    const retainedEntries = state.imageList.result.map((imageId: number) => [
+      imageId,
+      state.imageList.entity[imageId],
+    ]);
+    state = comics(
+      state,
+      concatImageList([
+        { chapter: "c1", src: "https://example.com/c1.jpg" },
+      ]) as any,
+    );
+
+    expect(new Set(state.imageList.result).size).toBe(
+      state.imageList.result.length,
+    );
+    for (const [imageId, record] of retainedEntries) {
+      expect(state.imageList.entity[imageId]).toBe(record);
+    }
+    expect(
+      state.imageList.result.map(
+        (imageId: number) => state.imageList.entity[imageId]?.chapter,
+      ),
+    ).toEqual(["c4", "c4", "c3", "c3", "c2", "c2", "c1", "c1"]);
   });
 
   it("clears only the matching leading eviction restore sequence", () => {

@@ -8,6 +8,7 @@ jest.mock("react-redux", () => ({
 import ImageContainer, {
   getAppendStartIndex,
   getLeadingTrimStartIndex,
+  getReaderRowOffset,
 } from "./index";
 
 jest.mock("@components/ComicImage", () => ({
@@ -24,6 +25,7 @@ type ImageContainerProps = {
   hasPendingChapterGate: boolean;
   imageListKey: string;
   imageResult: number[];
+  imageRowHeights?: number[];
   innerHeight: number;
   leadingEvictionRestore: {
     sequence: number;
@@ -127,6 +129,11 @@ describe("ImageContainer", () => {
     expect(getAppendStartIndex([10, 11], [10, 12, 13])).toBe(-1);
   });
 
+  it("calculates deterministic row offsets from rendered heights", () => {
+    expect(getReaderRowOffset([132, 164, 420], 0)).toBe(0);
+    expect(getReaderRowOffset([132, 164, 420], 2)).toBe(296);
+  });
+
   it("suppresses the automatic visible range expansion after appending images", () => {
     const updateVisibleImageRange = jest.fn();
     const commonProps = {
@@ -192,6 +199,50 @@ describe("ImageContainer", () => {
     );
 
     expect((listElement as HTMLDivElement).scrollTop).toBe(636);
+    expect(clearLeadingEvictionRestore).toHaveBeenCalledWith(1);
+  });
+
+  it("preserves a partially visible retained anchor after leading eviction", () => {
+    const clearLeadingEvictionRestore = jest.fn();
+    const updateVisibleImageRange = jest.fn();
+    const commonProps = {
+      chapterLoadStatus: "ready" as const,
+      clearLeadingEvictionRestore,
+      fetchChapter: jest.fn(),
+      hasPendingChapterGate: false,
+      imageListKey: "m1",
+      innerHeight: 320,
+      requestedChapter: "m100",
+      updateVisibleImageRange,
+    };
+    const { container, rerender } = render(
+      <TestImageContainer
+        {...commonProps}
+        imageResult={[10, 11, 12, 13]}
+        imageRowHeights={[132, 132, 400, 200]}
+        leadingEvictionRestore={null}
+      />,
+    );
+    const listElement = container.querySelector(
+      ".reader-canvas",
+    ) as HTMLDivElement;
+
+    listElement.scrollTop = 300;
+    fireEvent.scroll(listElement);
+    rerender(
+      <TestImageContainer
+        {...commonProps}
+        imageResult={[12, 13]}
+        imageRowHeights={[400, 200]}
+        leadingEvictionRestore={{
+          sequence: 1,
+          firstRetainedImageId: 12,
+          removedScrollHeight: 264,
+        }}
+      />,
+    );
+
+    expect(listElement.scrollTop).toBe(36);
     expect(clearLeadingEvictionRestore).toHaveBeenCalledWith(1);
   });
 

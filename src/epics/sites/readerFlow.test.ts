@@ -180,12 +180,14 @@ describe("readerFlow", () => {
         blockingChapterId: "c2",
         chapterId: "c1",
         chapterIndex: 1,
+        readerGeneration: 0,
         status: "fetching",
       }),
       receivePendingChapterGate({
         blockingChapterId: "c2",
         chapterId: "c1",
         chapterIndex: 1,
+        readerGeneration: 0,
         status: "queued",
         canPreloadPreviousChapter: true,
         imgList: [{ chapter: "c1", src: "https://example.com/c1-1.jpg" }],
@@ -289,9 +291,68 @@ describe("readerFlow", () => {
         blockingChapterId: "c2",
         chapterId: "c1",
         chapterIndex: 1,
+        readerGeneration: 0,
         status: "fetching",
       }),
       clearPendingChapterGate(),
     ]);
+  });
+
+  it("ignores preload responses from an older reader generation", () => {
+    const chapterStreams = {
+      c2: new Subject<any>(),
+      c1: new Subject<any>(),
+    };
+    const fetchChapterImages$ = jest.fn(
+      (chapterID: string) =>
+        chapterStreams[chapterID as keyof typeof chapterStreams],
+    );
+    const epic = createFetchImgListEpic(fetchChapterImages$);
+    const action$ = new Subject<any>();
+    const state$ = {
+      value: {
+        comics: {
+          readerGeneration: 1,
+          chapterList: ["c2", "c1"],
+          imageList: {
+            result: [],
+            entity: {},
+          },
+          pendingChapterGate: null,
+        },
+      },
+    };
+    const output: any[] = [];
+    const subscription = epic(action$, state$ as any).subscribe((action) => {
+      output.push(action);
+    });
+
+    action$.next(fetchImgList(0));
+    state$.value.comics.readerGeneration = 2;
+    action$.next(fetchImgList(1));
+    chapterStreams.c2.next({
+      chapterID: "c2",
+      seriesID: "demo-series",
+      comicUrl: "https://example.com/demo",
+      imgList: [{ chapter: "c2", src: "https://example.com/c2-1.jpg" }],
+    });
+    chapterStreams.c2.complete();
+    chapterStreams.c1.next({
+      chapterID: "c1",
+      seriesID: "demo-series",
+      comicUrl: "https://example.com/demo",
+      imgList: [{ chapter: "c1", src: "https://example.com/c1-1.jpg" }],
+    });
+    chapterStreams.c1.complete();
+    action$.complete();
+
+    expect(output).toEqual([
+      concatImageList([
+        { chapter: "c1", src: "https://example.com/c1-1.jpg" },
+      ]),
+      updateCanPreloadPreviousChapter(true),
+      fetchImgSrc(0, 6),
+    ]);
+    subscription.unsubscribe();
   });
 });

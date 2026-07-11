@@ -139,11 +139,17 @@ export default function scrollEpic(
   );
 
   const stabilized$ = visibleRange$.pipe(
-    map((action) => action as VisibleImageRangeAction),
-    switchMap((action) =>
+    map((action) => ({
+      action: action as VisibleImageRangeAction,
+      readerGeneration: state$.value.comics.readerGeneration || 0,
+    })),
+    switchMap(({ action, readerGeneration }) =>
       timer(READER_CHAPTER_STABILIZE_MS).pipe(
         mergeMap(() => {
           const { comics } = state$.value;
+          if ((comics.readerGeneration || 0) !== readerGeneration) {
+            return [];
+          }
           const context = buildVisibleRangeContext({
             begin: action.begin,
             end: action.end,

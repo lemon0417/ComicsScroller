@@ -1,7 +1,6 @@
 import {
   fetchImgList,
   navigateChapter,
-  stopScroll,
   updateRead,
 } from "@domain/actions/reader";
 import { resetImg, updateChapterLatestIndex } from "@domain/reducers/comics";
@@ -20,7 +19,6 @@ describe("navigationEpic", () => {
     output$.subscribe((action: any) => actions.push(action));
 
     expect(actions).toEqual([
-      stopScroll(),
       resetImg(),
       updateRead(3),
       updateChapterLatestIndex(3),

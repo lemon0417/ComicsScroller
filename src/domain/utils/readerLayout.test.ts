@@ -1,6 +1,8 @@
 import {
   getImageRenderMetrics,
+  getReaderImageRowHeight,
   READER_HEADER_HEIGHT,
+  READER_IMAGE_GAP,
 } from "./readerLayout";
 
 describe("readerLayout", () => {
@@ -75,5 +77,24 @@ describe("readerLayout", () => {
 
     expect(layout.height).toBe(900 - READER_HEADER_HEIGHT - 40);
     expect(layout.width).toBe(976);
+  });
+
+  it("uses rendered card height when calculating virtual row height", () => {
+    expect(
+      getReaderImageRowHeight({
+        type: "paywall",
+        height: 320,
+        innerWidth: 1024,
+        innerHeight: 900,
+      }),
+    ).toBe(900 - READER_HEADER_HEIGHT - 40 + READER_IMAGE_GAP * 2);
+    expect(
+      getReaderImageRowHeight({
+        type: "end",
+        height: 72,
+        innerWidth: 1024,
+        innerHeight: 900,
+      }),
+    ).toBe(72 + READER_IMAGE_GAP * 2);
   });
 });

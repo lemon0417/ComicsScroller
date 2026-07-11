@@ -3,13 +3,14 @@ import {
   IMAGE_LOAD_FAILED,
   type ReaderImageFailureStage,
   RETRY_IMAGE,
+  UPDATE_READ,
   UPDATE_VISIBLE_IMAGE_RANGE,
 } from "@domain/actions/reader";
 import { buildSeriesKey } from "@domain/library";
 import {
   clampReaderImageScale,
   getImageRenderMetrics,
-  READER_IMAGE_GAP,
+  getReaderImageRowHeight,
   READER_IMAGE_SCALE_DEFAULT,
   READER_IMAGE_SCALE_STEP,
 } from "@domain/utils/readerLayout";
@@ -48,6 +49,7 @@ export type PendingChapterGateRecord = {
   blockingChapterId: string;
   chapterId: string;
   chapterIndex: number;
+  readerGeneration: number;
   status: PendingChapterGateStatus;
   imgList?: ComicsImageSource[];
   canPreloadPreviousChapter?: boolean;
@@ -80,6 +82,8 @@ export type ComicsState = {
   pendingChapterGate: PendingChapterGateRecord | null;
   leadingEvictionRestore: LeadingEvictionRestoreRecord | null;
   leadingEvictionRestoreSequence: number;
+  nextImageId: number;
+  readerGeneration: number;
   readerGlobalScale: number;
   readerZoomTarget: ReaderZoomTarget;
   read: string[];
@@ -144,6 +148,8 @@ const initialState: ComicsState = {
   pendingChapterGate: null,
   leadingEvictionRestore: null,
   leadingEvictionRestoreSequence: 0,
+  nextImageId: 0,
+  readerGeneration: 0,
   readerGlobalScale: READER_IMAGE_SCALE_DEFAULT,
   readerZoomTarget: "all",
   read: [],
@@ -186,21 +192,6 @@ const SET_READER_ZOOM_TARGET = "SET_READER_ZOOM_TARGET";
 const ADJUST_READER_IMAGE_SCALE = "ADJUST_READER_IMAGE_SCALE";
 const RESET_READER_IMAGE_SCALE = "RESET_READER_IMAGE_SCALE";
 
-function createFallbackImageRecord(chapter = ""): ComicsImageRecord {
-  return {
-    autoRetryCount: 0,
-    chapter,
-    loadError: null,
-    requestSrc: "",
-    src: "",
-    height: 1400,
-    loading: false,
-    naturalHeight: 0,
-    naturalWidth: 0,
-    type: "image",
-  };
-}
-
 function resolveCurrentChapterTitle(input: {
   chapterList: string[];
   chapters: Record<string, ComicsChapterRecord>;
@@ -227,10 +218,11 @@ function appendImageListToState(
     return state;
   }
 
-  const imageStartIndex = state.imageList.result.length;
+  const imageStartIndex = state.nextImageId;
   return syncReadyChaptersForAppendedImages({
     ...state,
     chapterLoadStatus: "ready",
+    nextImageId: imageStartIndex + data.length + 1,
     imageList: {
       ...state.imageList,
       result: [
@@ -282,6 +274,7 @@ function canAppendPendingChapter(
     gate &&
       gate.status === "queued" &&
       gate.imgList?.length &&
+      gate.readerGeneration === state.readerGeneration &&
       state.readyChapters[gate.blockingChapterId],
   );
 }
@@ -382,8 +375,23 @@ function syncReadyChaptersForAppendedImages(state: ComicsState) {
       };
 }
 
-function getReaderImageRowHeight(record?: ComicsImageRecord) {
-  return Math.max(0, record?.height || 0) + READER_IMAGE_GAP * 2;
+function getReaderImageRecordRowHeight(
+  state: ComicsState,
+  imageId: number,
+  record?: ComicsImageRecord,
+) {
+  if (!record) {
+    return 0;
+  }
+  return getReaderImageRowHeight({
+    type: record.type,
+    height: record.height,
+    naturalWidth: record.naturalWidth,
+    naturalHeight: record.naturalHeight,
+    innerWidth: state.innerWidth,
+    innerHeight: state.innerHeight,
+    imageScale: getReaderImageScaleForImage(state, imageId),
+  });
 }
 
 function isReaderZoomTargetImage(record?: ComicsImageRecord) {
@@ -641,6 +649,7 @@ export default function comics(
         pendingChapterGate: null,
         leadingEvictionRestore: null,
         leadingEvictionRestoreSequence: 0,
+        readerGeneration: state.readerGeneration + 1,
         requestedChapter:
           typeof action.chapter === "string"
             ? action.chapter
@@ -648,8 +657,10 @@ export default function comics(
       };
     case LOAD_IMAGE_SRC:
       if (typeof action.index === "number" && action.index >= 0) {
-        const currentRecord =
-          state.imageList.entity[action.index] || createFallbackImageRecord();
+        const currentRecord = state.imageList.entity[action.index];
+        if (!currentRecord) {
+          return state;
+        }
         return {
           ...state,
           imageList: {
@@ -668,8 +679,10 @@ export default function comics(
       return state;
     case UPDATE_IMAGE_TYPE:
       if (typeof action.index === "number" && action.index >= 0) {
-        const currentRecord =
-          state.imageList.entity[action.index] || createFallbackImageRecord();
+        const currentRecord = state.imageList.entity[action.index];
+        if (!currentRecord) {
+          return state;
+        }
         const nextImageList = {
           ...state.imageList,
           entity: {
@@ -711,12 +724,21 @@ export default function comics(
       }
       return state;
     case START_PENDING_CHAPTER_GATE:
+      if (
+        !action.gate ||
+        action.gate.readerGeneration !== state.readerGeneration
+      ) {
+        return state;
+      }
       return {
         ...state,
-        pendingChapterGate: action.gate || null,
+        pendingChapterGate: action.gate,
       };
     case RECEIVE_PENDING_CHAPTER_GATE:
-      if (!action.gate) {
+      if (
+        !action.gate ||
+        action.gate.readerGeneration !== state.readerGeneration
+      ) {
         return state;
       }
       if (
@@ -845,6 +867,19 @@ export default function comics(
     case UPDATE_CHAPTER_NOW_INDEX: {
       if (typeof action.data !== "number") return state;
       const chapterNowIndex = action.data;
+      return {
+        ...state,
+        chapterNowIndex,
+        currentChapterTitle: resolveCurrentChapterTitle({
+          chapterList: state.chapterList,
+          chapters: state.chapters,
+          chapterNowIndex,
+        }),
+      };
+    }
+    case UPDATE_READ: {
+      if (typeof action.index !== "number") return state;
+      const chapterNowIndex = action.index;
       return {
         ...state,
         chapterNowIndex,
@@ -994,7 +1029,11 @@ export default function comics(
       let removedScrollHeight = 0;
       for (let index = 0; index < removeCount; index += 1) {
         const imageID = state.imageList.result[index];
-        removedScrollHeight += getReaderImageRowHeight(nextEntity[imageID]);
+        removedScrollHeight += getReaderImageRecordRowHeight(
+          state,
+          imageID,
+          nextEntity[imageID],
+        );
         delete nextEntity[imageID];
         if (typeof nextImageScaleOverrides[imageID] === "number") {
           delete nextImageScaleOverrides[imageID];
@@ -1006,6 +1045,9 @@ export default function comics(
       }
       const firstRetainedImageId = nextResult[0];
       const nextRestoreSequence = state.leadingEvictionRestoreSequence + 1;
+      const nextReadyChapters = { ...state.readyChapters };
+      const didRemoveReadyChapter = Boolean(nextReadyChapters[headChapterID]);
+      delete nextReadyChapters[headChapterID];
 
       return {
         ...state,
@@ -1025,6 +1067,9 @@ export default function comics(
         imageScaleOverrides: didRemoveImageScaleOverride
           ? nextImageScaleOverrides
           : state.imageScaleOverrides,
+        readyChapters: didRemoveReadyChapter
+          ? nextReadyChapters
+          : state.readyChapters,
         selectedImageId: didRemoveSelectedImage ? null : state.selectedImageId,
         readerZoomTarget: didRemoveSelectedImage ? "all" : state.readerZoomTarget,
       };
@@ -1047,6 +1092,7 @@ export default function comics(
         pendingChapterGate: null,
         leadingEvictionRestore: null,
         leadingEvictionRestoreSequence: 0,
+        readerGeneration: state.readerGeneration + 1,
         readerGlobalScale: READER_IMAGE_SCALE_DEFAULT,
         readerZoomTarget: "all",
         selectedImageId: null,

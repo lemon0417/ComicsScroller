@@ -1,4 +1,4 @@
-import { of } from "rxjs";
+import { of, Subject } from "rxjs";
 
 function setup() {
   jest.resetModules();
@@ -625,6 +625,53 @@ describe("scrollEpic", () => {
 
     expect(actions).not.toContainEqual(updateRead(0));
 
+    subscription.unsubscribe();
+  });
+
+  it("drops a pending stabilized range after the reader generation changes", () => {
+    const {
+      READER_CHAPTER_STABILIZE_MS,
+      scrollEpic,
+      updateRead,
+      updateVisibleImageRange,
+    } = setup();
+    const action$ = new Subject<any>();
+    const state$ = {
+      value: {
+        comics: {
+          readerGeneration: 1,
+          canPreloadPreviousChapter: false,
+          pendingChapterGate: null,
+          imageList: {
+            result: [0],
+            entity: {
+              0: {
+                chapter: "c1",
+                height: 1000,
+                naturalHeight: 1600,
+                naturalWidth: 900,
+                type: "natural",
+              },
+            },
+          },
+          chapterList: ["c1", "c0"],
+          chapterLatestIndex: 0,
+          chapterNowIndex: 1,
+          innerWidth: 1200,
+          innerHeight: 800,
+        },
+      },
+    };
+    const actions: any[] = [];
+    const subscription = scrollEpic(action$, state$ as any).subscribe(
+      (action: any) => actions.push(action),
+    );
+
+    action$.next(updateVisibleImageRange(0, 0));
+    state$.value.comics.readerGeneration = 2;
+    jest.advanceTimersByTime(READER_CHAPTER_STABILIZE_MS);
+
+    expect(actions).not.toContainEqual(updateRead(0));
     subscription.unsubscribe();
   });
 });

@@ -119,9 +119,12 @@ UI → Actions → Epics → Services → IndexedDB/Network → Actions
   - `comics.currentChapterTitle` 是 reducer 維護的衍生欄位，供 header 與 location sync 使用
   - `comics.chapters` 只保留 reader UI 真的會用到的 title-only 章節 metadata，不重複保存 repository 內的完整 chapter cache
   - 圖片閱讀列表使用 `react-window` 虛擬化；`ImageContainer` 透過 `onRowsRendered` 回報目前可視 row 範圍，再由 `scrollEpic` 觸發圖片載入、已讀更新與前章預載
+  - reader row height 由 Redux 內的圖片 render metrics、viewport 與縮放狀態直接計算，不使用以 row index 綁定的動態量測 cache
+  - 圖片 ID 在同一個 reader session 內單調遞增；回收、跳章與重設圖片窗口都不得重用已配發 ID，避免晚到的圖片事件命中新內容
   - 連續閱讀時，reader 只保留有限的已載入章節窗口；超出窗口的頭部舊章節會從 `imageList` evict，避免 store 隨閱讀時間無上限成長
-  - evict 頭部章節時，`ImageContainer` 會補償 scroll offset，避免因為移除上方內容造成 viewport 跳動
+  - evict 頭部章節時，`ImageContainer` 以穩定圖片 ID 與 row 內偏移重建 scroll offset；恢復完成前不回報合成 visible-range 事件
   - 下一章預載採 gated append：章節資料可以先抓，但在當前章節首張可閱讀圖片 ready 前，不會先插入 `imageList` 或生成後續章節 rows；尾端只會顯示單一 loading gate
+  - 初始載入與每次跳章都會遞增 reader generation；scroll timer、章節預載、pending gate 與已讀持久化只允許目前 generation 更新畫面，快速跳章以最後一次選擇為準
   - reader 圖片 record 會追蹤 request source、loading failure 與 retry 狀態；自動 / 手動重試由 epics 驅動，不放在 component 內自行排程
   - 是否允許向前預載章節，由 `canPreloadPreviousChapter` 顯式控制，不使用 sentinel index 表示流程狀態
   - reader mount / `librarySignal` sync 只需確認作品是否存在與是否已追蹤時，優先使用 `getReaderSeriesSyncState()`

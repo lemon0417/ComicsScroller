@@ -1,7 +1,6 @@
 import {
   fetchImgList,
   NAVIGATE_CHAPTER,
-  stopScroll,
   updateRead,
 } from "@domain/actions/reader";
 import { resetImg, updateChapterLatestIndex } from "@domain/reducers/comics";
@@ -16,7 +15,6 @@ const navigationEpic: AppEpic = (action$) =>
     mergeMap((action) => {
       const { index } = action as { index: number };
       return [
-        stopScroll(),
         resetImg(),
         updateRead(index),
         updateChapterLatestIndex(index),

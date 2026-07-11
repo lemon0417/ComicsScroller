@@ -117,3 +117,7 @@ export function getImageRenderMetrics({
     type: nextType,
   };
 }
+
+export function getReaderImageRowHeight(input: ImageLayoutInput) {
+  return getImageRenderMetrics(input).height + READER_IMAGE_GAP * 2;
+}

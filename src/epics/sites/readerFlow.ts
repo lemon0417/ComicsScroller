@@ -10,6 +10,7 @@ import {
   type SiteKey,
   uniqueStrings,
 } from "@domain/library";
+import type { RootState } from "@domain/reducers";
 import {
   clearPendingChapterGate,
   type ComicsChapterRecord,
@@ -49,6 +50,7 @@ import {
   finalize,
   map as rxMap,
   mergeMap,
+  switchMap,
 } from "rxjs/operators";
 
 import type { AppEpic, EpicAction } from "../types";
@@ -143,6 +145,10 @@ function hasLoadedChapter(input: {
 
 function getCanPreloadPreviousChapter(payload: ReaderChapterPayload) {
   return payload.canPreloadPreviousChapter !== false;
+}
+
+function getReaderGeneration(state$: { value?: RootState }) {
+  return Number(state$?.value?.comics?.readerGeneration || 0);
 }
 
 function getTailChapterID(input: {
@@ -254,7 +260,9 @@ export function createFetchImgListEpic(
           imageList,
           pendingChapterGate,
         } = state$.value.comics;
+        const readerGeneration = getReaderGeneration(state$);
         const chapterID = String(chapterList[index] || "");
+        const requestKey = `${readerGeneration}:${chapterID}`;
         const hasExistingImages = imageList.result.length > 0;
         const blockingChapterId = hasExistingImages
           ? getTailChapterID({ imageList })
@@ -265,21 +273,29 @@ export function createFetchImgListEpic(
                 blockingChapterId,
                 chapterId: chapterID,
                 chapterIndex: index,
+                readerGeneration,
                 status: "fetching" as const,
               }
             : null;
 
         if (
           !chapterID ||
-          pendingChapterGate ||
-          inFlightChapterRequests.has(chapterID) ||
+          pendingChapterGate?.readerGeneration === readerGeneration ||
+          inFlightChapterRequests.has(requestKey) ||
           hasLoadedChapter({ imageList, chapterID })
         ) {
           return EMPTY;
         }
 
         const fetchChapterImagesResult$ = fetchChapterImages$(chapterID).pipe(
+          defaultIfEmpty(null),
           mergeMap((payload) => {
+            if (getReaderGeneration(state$) !== readerGeneration) {
+              return EMPTY;
+            }
+            if (!payload) {
+              return pendingGate ? [clearPendingChapterGate()] : [];
+            }
             const latestComics = state$.value.comics;
             const latestImageList = latestComics.imageList;
             if (
@@ -314,25 +330,24 @@ export function createFetchImgListEpic(
               }),
             ];
           }),
-          catchError(() => (pendingGate ? of(clearPendingChapterGate()) : EMPTY)),
+          catchError(() =>
+            pendingGate && getReaderGeneration(state$) === readerGeneration
+              ? of(clearPendingChapterGate())
+              : EMPTY,
+          ),
           finalize(() => {
-            inFlightChapterRequests.delete(chapterID);
+            inFlightChapterRequests.delete(requestKey);
           }),
         );
-        const fetchChapterImagesWithGate$: Observable<EpicAction> = pendingGate
-          ? fetchChapterImagesResult$.pipe(
-              defaultIfEmpty(clearPendingChapterGate()),
-            )
-          : fetchChapterImagesResult$;
 
-        inFlightChapterRequests.add(chapterID);
+        inFlightChapterRequests.add(requestKey);
         if (!pendingGate) {
-          return fetchChapterImagesWithGate$;
+          return fetchChapterImagesResult$;
         }
 
         return merge(
           of(startPendingChapterGate(pendingGate)),
-          fetchChapterImagesWithGate$,
+          fetchChapterImagesResult$,
         );
       }),
     );
@@ -342,14 +357,22 @@ export function createFetchChapterEpic(config: ReaderFlowConfig): AppEpic {
   const resolveFetchMetaOptions$ =
     config.resolveFetchMetaOptions$ || (() => of({}));
 
-  return (action$) =>
+  return (action$, state$) =>
     action$.pipe(
       ofType(FETCH_CHAPTER),
-      mergeMap((action) => {
+      switchMap((action) => {
         const { chapter: chapterID } = action as ReaderChapterAction;
+        const readerGeneration = getReaderGeneration(state$);
         return config.fetchChapterImages$(chapterID).pipe(
-          mergeMap((payload) =>
-            merge(
+          defaultIfEmpty(null),
+          mergeMap((payload) => {
+            if (getReaderGeneration(state$) !== readerGeneration) {
+              return EMPTY;
+            }
+            if (!payload) {
+              return of(setChapterLoadFailed());
+            }
+            return merge(
               of(...buildInitialChapterActions(payload)),
               resolveFetchMetaOptions$(payload).pipe(
                 mergeMap((fetchMetaOptions) =>
@@ -373,6 +396,9 @@ export function createFetchChapterEpic(config: ReaderFlowConfig): AppEpic {
                     ),
                   ).pipe(
                     mergeMap(({ series, subscribed, updatesCount }) => {
+                      if (getReaderGeneration(state$) !== readerGeneration) {
+                        return EMPTY;
+                      }
                       chrome.action.setBadgeText({
                         text: `${updatesCount === 0 ? "" : updatesCount}`,
                       });
@@ -388,9 +414,8 @@ export function createFetchChapterEpic(config: ReaderFlowConfig): AppEpic {
                   );
                 }),
               ),
-            ),
-          ),
-          defaultIfEmpty(setChapterLoadFailed()),
+            );
+          }),
         );
       }),
     );
@@ -400,20 +425,22 @@ export function createUpdateReadEpic(site: SiteKey): AppEpic {
   return (action$, state$) =>
     action$.pipe(
       ofType(UPDATE_READ),
-      mergeMap((action) => {
+      switchMap((action) => {
         const { index } = action as ReaderIndexAction;
         const { comicsID, chapterList } = state$.value.comics;
+        const readerGeneration = getReaderGeneration(state$);
 
         return from(applyReadProgress(site, comicsID, chapterList[index])).pipe(
           mergeMap(({ series, updatesCount }) => {
+            if (getReaderGeneration(state$) !== readerGeneration) {
+              return EMPTY;
+            }
             chrome.action.setBadgeText({
               text: `${updatesCount === 0 ? "" : updatesCount}`,
             });
-            return [
-              updateReadChapters(series?.read || []),
-              updateChapterNowIndex(index),
-            ];
+            return [updateReadChapters(series?.read || [])];
           }),
+          catchError(() => EMPTY),
         );
       }),
     );

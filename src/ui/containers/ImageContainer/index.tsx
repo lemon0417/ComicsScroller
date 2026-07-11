@@ -6,9 +6,11 @@ import { fetchChapter, updateVisibleImageRange } from "@domain/actions/reader";
 import {
   clearLeadingEvictionRestore,
   type ComicsState,
+  getReaderImageScaleForImage,
 } from "@domain/reducers/comics";
 import {
   DEFAULT_IMAGE_HEIGHT,
+  getReaderImageRowHeight,
   READER_HEADER_HEIGHT,
   READER_IMAGE_GAP,
 } from "@domain/utils/readerLayout";
@@ -18,15 +20,15 @@ import {
   List,
   type ListImperativeAPI,
   type RowComponentProps,
-  useDynamicRowHeight,
 } from "react-window";
+import { createSelector } from "reselect";
 
 type ImageContainerProps = {
   chapterLoadStatus: ComicsState["chapterLoadStatus"];
   fetchChapter: typeof fetchChapter;
   hasPendingChapterGate: boolean;
-  imageListKey: string;
   imageResult: number[];
+  imageRowHeights?: number[];
   innerHeight: number;
   leadingEvictionRestore: ComicsState["leadingEvictionRestore"];
   requestedChapter: string;
@@ -88,41 +90,31 @@ export function getAppendStartIndex(
   return prevImageResult.length;
 }
 
-function getRowViewportTop(
-  listElement: HTMLDivElement,
-  imageId: number,
-) {
-  const rowElement = listElement.querySelector<HTMLElement>(
-    `[data-image-id="${imageId}"]`,
-  );
-  if (!rowElement) {
-    return null;
+export function getReaderRowOffset(rowHeights: number[], rowIndex: number) {
+  let offset = 0;
+  for (let index = 0; index < rowIndex; index += 1) {
+    offset += rowHeights[index] || READER_DEFAULT_ROW_HEIGHT;
   }
-
-  const listRect = listElement.getBoundingClientRect();
-  const rowRect = rowElement.getBoundingClientRect();
-  return rowRect.top - listRect.top;
+  return offset;
 }
 
 function getAnchorSnapshot(input: {
   imageResult: number[];
   listElement: HTMLDivElement;
+  rowHeights: number[];
   visibleRange: { begin: number; end: number };
 }) {
-  const { imageResult, listElement, visibleRange } = input;
+  const { imageResult, listElement, rowHeights, visibleRange } = input;
   const anchorImageId = imageResult[visibleRange.begin];
   if (typeof anchorImageId !== "number") {
     return null;
   }
 
-  const anchorTop = getRowViewportTop(listElement, anchorImageId);
-  if (anchorTop === null) {
-    return null;
-  }
-
   return {
     imageId: anchorImageId,
-    top: anchorTop,
+    top:
+      getReaderRowOffset(rowHeights, visibleRange.begin) -
+      listElement.scrollTop,
   } satisfies AnchorSnapshot;
 }
 
@@ -168,8 +160,8 @@ function ImageContainer({
   clearLeadingEvictionRestore: clearLeadingEvictionRestoreProp,
   fetchChapter: fetchChapterProp,
   hasPendingChapterGate,
-  imageListKey,
   imageResult,
+  imageRowHeights,
   innerHeight,
   leadingEvictionRestore,
   requestedChapter,
@@ -184,27 +176,26 @@ function ImageContainer({
     useRef<AppendRangeSuppress | null>(null);
   const suppressedAppendLengthRef = useRef<number | null>(null);
   const appliedEvictionRestoreSequenceRef = useRef<number | null>(null);
-  const restoreFrameRef = useRef<number | null>(null);
   const lastScrollTopRef = useRef(0);
-  const rowHeights = useDynamicRowHeight({
-    defaultRowHeight: READER_DEFAULT_ROW_HEIGHT,
-    key: imageListKey,
-  });
+  const liveScrollTopRef = useRef(0);
+  const resolvedRowHeights = useMemo(
+    () =>
+      imageResult.map(
+        (_imageId, index) =>
+          imageRowHeights?.[index] || READER_DEFAULT_ROW_HEIGHT,
+      ),
+    [imageResult, imageRowHeights],
+  );
   const rowProps = useMemo<ReaderImageRowProps>(
     () => ({ hasPendingChapterGate, imageResult }),
     [hasPendingChapterGate, imageResult],
   );
-  const listRowHeights = useMemo(
-    () => ({
-      getAverageRowHeight: rowHeights.getAverageRowHeight,
-      getRowHeight: (index: number) =>
-        hasPendingChapterGate && index === imageResult.length
-          ? READER_PENDING_GATE_ROW_HEIGHT
-          : rowHeights.getRowHeight(index),
-      observeRowElements: rowHeights.observeRowElements,
-      setRowHeight: rowHeights.setRowHeight,
-    }),
-    [hasPendingChapterGate, imageResult.length, rowHeights],
+  const getRowHeight = useCallback(
+    (index: number) =>
+      hasPendingChapterGate && index === imageResult.length
+        ? READER_PENDING_GATE_ROW_HEIGHT
+        : resolvedRowHeights[index] || READER_DEFAULT_ROW_HEIGHT,
+    [hasPendingChapterGate, imageResult.length, resolvedRowHeights],
   );
 
   const handleRowsRendered = useCallback(
@@ -260,6 +251,7 @@ function ImageContainer({
         const nextAnchorSnapshot = getAnchorSnapshot({
           imageResult,
           listElement,
+          rowHeights: resolvedRowHeights,
           visibleRange: nextRange,
         });
         if (nextAnchorSnapshot) {
@@ -275,9 +267,10 @@ function ImageContainer({
       }
       lastVisibleRangeRef.current = nextRange;
       lastScrollTopRef.current = currentScrollTop;
+      liveScrollTopRef.current = currentScrollTop;
       updateVisibleImageRangeProp(nextRange.begin, nextRange.end);
     },
-    [imageResult, updateVisibleImageRangeProp],
+    [imageResult, resolvedRowHeights, updateVisibleImageRangeProp],
   );
 
   useLayoutEffect(() => {
@@ -315,93 +308,78 @@ function ImageContainer({
       appliedEvictionRestoreSequenceRef.current !==
         leadingEvictionRestore.sequence;
     if (canApplyEvictionRestore && listElement) {
-      listElement.scrollTop = Math.max(
-        0,
-        listElement.scrollTop - leadingEvictionRestore.removedScrollHeight,
-      );
+      const anchorSnapshot = anchorSnapshotRef.current;
+      const retainedAnchorIndex = anchorSnapshot
+        ? imageResult.indexOf(anchorSnapshot.imageId)
+        : -1;
+      pendingAnchorRestoreRef.current = anchorSnapshot;
+      const restoredScrollTop =
+        anchorSnapshot && retainedAnchorIndex >= 0
+          ? getReaderRowOffset(resolvedRowHeights, retainedAnchorIndex) -
+            anchorSnapshot.top
+          : Math.max(
+              0,
+              (liveScrollTopRef.current || listElement.scrollTop) -
+                leadingEvictionRestore.removedScrollHeight,
+            );
+      listElement.scrollTop = Math.max(0, restoredScrollTop);
       lastScrollTopRef.current = listElement.scrollTop;
+      liveScrollTopRef.current = listElement.scrollTop;
       appliedEvictionRestoreSequenceRef.current =
         leadingEvictionRestore.sequence;
-      clearLeadingEvictionRestoreProp(leadingEvictionRestore.sequence);
-    }
-
-    const anchorSnapshot = anchorSnapshotRef.current;
-    if (
-      !anchorSnapshot ||
-      !imageResult.includes(anchorSnapshot.imageId)
-    ) {
       pendingAnchorRestoreRef.current = null;
       pendingAppendRangeSuppressRef.current = null;
       suppressedAppendLengthRef.current = null;
       prevImageResultRef.current = imageResult;
       lastVisibleRangeRef.current = EMPTY_VISIBLE_RANGE;
+      clearLeadingEvictionRestoreProp(leadingEvictionRestore.sequence);
       return undefined;
     }
 
-    let cancelled = false;
-    pendingAnchorRestoreRef.current = anchorSnapshot;
+    pendingAnchorRestoreRef.current = null;
+    pendingAppendRangeSuppressRef.current = null;
+    suppressedAppendLengthRef.current = null;
+    prevImageResultRef.current = imageResult;
+    lastVisibleRangeRef.current = EMPTY_VISIBLE_RANGE;
+    return undefined;
+  }, [
+    clearLeadingEvictionRestoreProp,
+    imageResult,
+    leadingEvictionRestore,
+    resolvedRowHeights,
+  ]);
 
-    const finishRestore = () => {
-      if (cancelled) {
-        return;
-      }
-      pendingAnchorRestoreRef.current = null;
-      prevImageResultRef.current = imageResult;
-      lastVisibleRangeRef.current = EMPTY_VISIBLE_RANGE;
-      restoreFrameRef.current = null;
-    };
-
-    const restoreAnchorPosition = (attempt = 0) => {
-      if (cancelled) {
-        return;
-      }
-      const currentListElement = listRef.current?.element;
-      if (!currentListElement) {
-        finishRestore();
-        return;
-      }
-
-      const nextAnchorTop = getRowViewportTop(
-        currentListElement,
-        anchorSnapshot.imageId,
-      );
-      if (nextAnchorTop === null) {
-        if (attempt < 2) {
-          restoreFrameRef.current = window.requestAnimationFrame(() => {
-            restoreAnchorPosition(attempt + 1);
-          });
-          return;
-        }
-        lastVisibleRangeRef.current = EMPTY_VISIBLE_RANGE;
-        finishRestore();
-        return;
-      }
-
-      currentListElement.scrollTop = Math.max(
-        0,
-        currentListElement.scrollTop + nextAnchorTop - anchorSnapshot.top,
-      );
-      lastScrollTopRef.current = currentListElement.scrollTop;
-      finishRestore();
-    };
-
-    restoreAnchorPosition();
-
-    return () => {
-      cancelled = true;
-      if (restoreFrameRef.current !== null) {
-        window.cancelAnimationFrame(restoreFrameRef.current);
-        restoreFrameRef.current = null;
-      }
-    };
-  }, [clearLeadingEvictionRestoreProp, imageResult, leadingEvictionRestore]);
-
-  useLayoutEffect(() => () => {
-    if (restoreFrameRef.current !== null) {
-      window.cancelAnimationFrame(restoreFrameRef.current);
-      restoreFrameRef.current = null;
+  useLayoutEffect(() => {
+    const listElement = listRef.current?.element;
+    if (!listElement) {
+      return undefined;
     }
-  }, []);
+
+    const captureScrollAnchor = () => {
+      liveScrollTopRef.current = listElement.scrollTop;
+      const visibleRange = lastVisibleRangeRef.current;
+      if (visibleRange.begin < 0) {
+        return;
+      }
+      const nextAnchorSnapshot = getAnchorSnapshot({
+        imageResult,
+        listElement,
+        rowHeights: resolvedRowHeights,
+        visibleRange,
+      });
+      if (nextAnchorSnapshot) {
+        anchorSnapshotRef.current = nextAnchorSnapshot;
+      }
+    };
+
+    listElement.addEventListener("scroll", captureScrollAnchor, {
+      passive: true,
+    });
+    captureScrollAnchor();
+    return () => {
+      listElement.removeEventListener("scroll", captureScrollAnchor);
+    };
+  }, [imageResult, resolvedRowHeights]);
 
   if (imageResult.length === 0) {
     pendingAnchorRestoreRef.current = null;
@@ -411,6 +389,7 @@ function ImageContainer({
     anchorSnapshotRef.current = null;
     lastVisibleRangeRef.current = EMPTY_VISIBLE_RANGE;
     prevImageResultRef.current = imageResult;
+    liveScrollTopRef.current = 0;
   }
 
   if (imageResult.length === 0) {
@@ -444,7 +423,7 @@ function ImageContainer({
       overscanCount={READER_LIST_OVERSCAN_COUNT}
       rowComponent={ReaderImageRow}
       rowCount={imageResult.length + (hasPendingChapterGate ? 1 : 0)}
-      rowHeight={listRowHeights}
+      rowHeight={getRowHeight}
       rowProps={rowProps}
       style={{
         height: Math.max(320, innerHeight - READER_HEADER_HEIGHT),
@@ -458,16 +437,50 @@ function ImageContainer({
   );
 }
 
-function mapStateToProps({ comics }: { comics: ComicsState }) {
+const selectReaderImageRowHeights = createSelector(
+  [
+    ({ comics }: { comics: ComicsState }) => comics.imageList.result,
+    ({ comics }: { comics: ComicsState }) => comics.imageList.entity,
+    ({ comics }: { comics: ComicsState }) => comics.imageScaleOverrides,
+    ({ comics }: { comics: ComicsState }) => comics.readerGlobalScale,
+    ({ comics }: { comics: ComicsState }) => comics.innerWidth,
+    ({ comics }: { comics: ComicsState }) => comics.innerHeight,
+  ],
+  (
+    imageResult,
+    imageEntity,
+    imageScaleOverrides,
+    readerGlobalScale,
+    innerWidth,
+    innerHeight,
+  ) =>
+    imageResult.map((imageId) => {
+      const record = imageEntity[imageId];
+      if (!record) {
+        return READER_DEFAULT_ROW_HEIGHT;
+      }
+      return getReaderImageRowHeight({
+        type: record.type,
+        height: record.height,
+        naturalWidth: record.naturalWidth,
+        naturalHeight: record.naturalHeight,
+        innerWidth,
+        innerHeight,
+        imageScale: getReaderImageScaleForImage(
+          { imageScaleOverrides, readerGlobalScale },
+          imageId,
+        ),
+      });
+    }),
+);
+
+function mapStateToProps(state: { comics: ComicsState }) {
+  const { comics } = state;
   const imageResult = comics.imageList.result;
-  const firstImageIndex = imageResult[0];
 
   return {
-    imageListKey:
-      typeof firstImageIndex === "number"
-        ? `reader-list-${firstImageIndex}`
-        : comics.requestedChapter || comics.seriesKey || "reader-list",
     imageResult,
+    imageRowHeights: selectReaderImageRowHeights(state),
     hasPendingChapterGate: Boolean(comics.pendingChapterGate),
     innerHeight: comics.innerHeight,
     leadingEvictionRestore: comics.leadingEvictionRestore,
