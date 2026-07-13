@@ -18,6 +18,7 @@ let compat: typeof import("./compat");
 let mutations: typeof import("./mutations");
 let queries: typeof import("./queries");
 let shared: typeof import("./shared");
+let syncPersistence: typeof import("./syncPersistence");
 
 if (typeof globalThis.structuredClone !== "function") {
   (globalThis as any).structuredClone = <T>(value: T): T =>
@@ -270,6 +271,7 @@ describe("library integration", () => {
     mutations = await import("./mutations");
     queries = await import("./queries");
     shared = await import("./shared");
+    syncPersistence = await import("./syncPersistence");
   });
 
   afterEach(async () => {
@@ -834,6 +836,175 @@ describe("library integration", () => {
       "dm5:m-oldest",
       "dm5:m-newest",
     ]);
+  });
+
+  it("round-trips subscription polling metadata through dump v2", async () => {
+    await compat.importLibraryDump({
+      format: "comic-scroller-db-dump",
+      formatVersion: 2,
+      exportedAt: 1,
+      dbSchemaVersion: LIBRARY_DB_VERSION,
+      data: {
+        series: [
+          {
+            site: "dm5",
+            comicsID: "m-newest",
+            title: "Newest",
+            cover: "",
+            url: "https://www.dm5.com/m-newest/",
+            lastRead: "",
+            chapters: [],
+          },
+          {
+            site: "dm5",
+            comicsID: "m-oldest",
+            title: "Oldest",
+            cover: "",
+            url: "https://www.dm5.com/m-oldest/",
+            lastRead: "",
+            chapters: [],
+          },
+        ],
+        subscriptions: [
+          { seriesKey: "dm5:m-newest", checkedAt: 200 },
+          { seriesKey: "dm5:m-oldest", checkedAt: 100 },
+        ],
+        history: [],
+        updates: [],
+      },
+    });
+
+    await expect(queries.listSubscriptionKeys()).resolves.toEqual([
+      "dm5:m-oldest",
+      "dm5:m-newest",
+    ]);
+    await expect(compat.exportLibraryDump()).resolves.toMatchObject({
+      data: {
+        subscriptions: [
+          { seriesKey: "dm5:m-newest", checkedAt: 200 },
+          { seriesKey: "dm5:m-oldest", checkedAt: 100 },
+        ],
+      },
+    });
+  });
+
+  it("reads and applies lightweight sync projections without replacing chapter caches", async () => {
+    await compat.importLibraryDump({
+      format: "comic-scroller-db-dump",
+      formatVersion: 2,
+      exportedAt: 1,
+      dbSchemaVersion: LIBRARY_DB_VERSION,
+      data: {
+        series: [
+          {
+            site: "dm5",
+            comicsID: "m123",
+            title: "Local Demo",
+            cover: "local.jpg",
+            url: "https://www.dm5.com/m123/",
+            lastRead: "m1",
+            read: ["m1"],
+            chapters: [
+              { chapterID: "m3", title: "Ch 3", href: "https://www.dm5.com/m3/" },
+              { chapterID: "m2", title: "Ch 2", href: "https://www.dm5.com/m2/" },
+              { chapterID: "m1", title: "Ch 1", href: "https://www.dm5.com/m1/" },
+              { chapterID: "m0", title: "Ch 0", href: "https://www.dm5.com/m0/" },
+            ],
+          },
+        ],
+        subscriptions: [{ seriesKey: "dm5:m123", checkedAt: 111 }],
+        history: ["dm5:m123"],
+        updates: [{ seriesKey: "dm5:m123", chapterID: "m2" }],
+      },
+    });
+
+    const projection = await syncPersistence.readLibrarySyncProjection();
+    expect(projection.subscriptionCheckedAtByKey).toEqual({
+      "dm5:m123": 111,
+    });
+    expect(projection.data.series[0].chapters.map((row) => row.chapterID)).toEqual([
+      "m3",
+      "m1",
+      "m2",
+    ]);
+    expect(projection.data.series[0].chapters).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ chapterID: "m0" })]),
+    );
+
+    const mergedSnapshot = shared.compactDumpRowsToSnapshot({
+      series: [
+        {
+          site: "dm5",
+          comicsID: "m123",
+          title: "Remote Demo",
+          cover: "remote.jpg",
+          url: "https://www.dm5.com/m123/",
+          lastRead: "m1",
+          read: ["m1"],
+          chapters: [
+            { chapterID: "m4", title: "Ch 4", href: "https://www.dm5.com/m4/" },
+            { chapterID: "m3", title: "Ch 3", href: "https://www.dm5.com/m3/" },
+            { chapterID: "m1", title: "Ch 1", href: "https://www.dm5.com/m1/" },
+          ],
+        },
+        {
+          site: "sf",
+          comicsID: "77",
+          title: "Remote Only",
+          cover: "",
+          url: "http://comic.sfacg.com/HTML/77/",
+          lastRead: "",
+          chapters: [
+            {
+              chapterID: "HTML/77/c7.html",
+              title: "Ch 7",
+              href: "http://comic.sfacg.com/HTML/77/c7.html",
+            },
+          ],
+        },
+      ],
+      subscriptions: [
+        { seriesKey: "dm5:m123" },
+        { seriesKey: "sf:77" },
+      ],
+      history: ["dm5:m123"],
+      updates: [{ seriesKey: "dm5:m123", chapterID: "m4" }],
+    });
+
+    await syncPersistence.applyLibrarySyncSnapshot(
+      mergedSnapshot,
+      projection.subscriptionCheckedAtByKey,
+    );
+
+    const localState = await queries.getReaderSeriesState("dm5:m123");
+    expect(localState.series?.chapterList).toEqual([
+      "m4",
+      "m3",
+      "m2",
+      "m1",
+      "m0",
+    ]);
+    expect(localState.series?.title).toBe("Remote Demo");
+    await expect(queries.getReaderSeriesState("sf:77")).resolves.toMatchObject({
+      series: {
+        title: "Remote Only",
+        chapterList: ["HTML/77/c7.html"],
+      },
+      subscribed: true,
+    });
+
+    const db = await shared.openLibraryDb();
+    const transaction = db.transaction([SUBSCRIPTIONS_STORE], "readonly");
+    const subscriptionRows = await shared.requestToPromise<any[]>(
+      transaction.objectStore(SUBSCRIPTIONS_STORE).getAll(),
+    );
+    await shared.transactionDone(transaction);
+    expect(subscriptionRows).toEqual(
+      expect.arrayContaining([
+        { seriesKey: "dm5:m123", position: 0, checkedAt: 111 },
+        { seriesKey: "sf:77", position: 1, checkedAt: 0 },
+      ]),
+    );
   });
 
   it("migrates legacy chrome.storage data into IndexedDB on first repository query", async () => {

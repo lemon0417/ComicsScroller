@@ -44,13 +44,6 @@ const SITE_LABELS: Record<string, string> = {
   comicbus: "ComicBus",
 };
 
-function readChapterIDFromRowKey(key: IDBValidKey) {
-  if (Array.isArray(key) && typeof key[1] === "string") {
-    return key[1];
-  }
-  return "";
-}
-
 function buildUpdateChapterKey(seriesKey: string, chapterID: string) {
   return `${seriesKey}::${chapterID}`;
 }
@@ -359,10 +352,9 @@ export async function getBackgroundSeriesState(
 ): Promise<BackgroundSeriesState | null> {
   await ensureLibraryReady();
   const db = await openLibraryDb();
-  const transaction = db.transaction([SERIES_STORE, CHAPTERS_STORE], "readonly");
+  const transaction = db.transaction([SERIES_STORE], "readonly");
   const done = transactionDone(transaction);
   const seriesStore = transaction.objectStore(SERIES_STORE);
-  const chaptersStore = transaction.objectStore(CHAPTERS_STORE);
   const row = await requestToPromise<SeriesRow | undefined>(seriesStore.get(seriesKey));
 
   if (!row) {
@@ -370,15 +362,12 @@ export async function getBackgroundSeriesState(
     return null;
   }
 
-  const chapterKeys = await requestToPromise<IDBValidKey[]>(
-    chaptersStore.index("seriesKey").getAllKeys(seriesKey),
-  );
   await done;
 
   return {
     url: row.url || "",
     cover: row.cover || "",
-    knownChapterIDs: chapterKeys.map(readChapterIDFromRowKey).filter(Boolean),
+    latestChapterID: row.latestChapterID || "",
   };
 }
 

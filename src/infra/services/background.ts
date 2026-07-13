@@ -160,12 +160,18 @@ async function checkSubscribedSeries(
       deps.getFetchChapterPage,
       options.timeoutMs,
     );
-    const knownChapterIDs = new Set(comic.knownChapterIDs || []);
-    const nextChapterIDs = (chapterList || []).filter(
-      (chapterID: string) => !knownChapterIDs.has(chapterID),
-    );
+    const normalizedChapterList = chapterList || [];
+    const checkpointIndex = comic.latestChapterID
+      ? normalizedChapterList.indexOf(comic.latestChapterID)
+      : -1;
+    const shouldEstablishBaseline =
+      normalizedChapterList.length > 0 && checkpointIndex < 0;
+    const nextChapterIDs =
+      checkpointIndex > 0
+        ? normalizedChapterList.slice(0, checkpointIndex)
+        : [];
 
-    if (nextChapterIDs.length > 0) {
+    if (nextChapterIDs.length > 0 || shouldEstablishBaseline) {
       await deps.applyBackgroundSeriesRefresh(
         site,
         comicsID,

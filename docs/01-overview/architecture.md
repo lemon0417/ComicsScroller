@@ -36,6 +36,7 @@ UI → Actions → Epics → Services → IndexedDB/Network → Actions
   - `library/compat.ts`
   - `library/signal.ts`
   - `library/sync.ts`
+  - `library/syncPersistence.ts`
 - `library/models.ts` 只作為 repository 相容 re-export；新程式碼若只需要型別/純 contract，優先從 `@domain/library` 取用
 - `library/db.ts` 管理 IndexedDB open / upgrade、request promise、transaction promise
 - `library/rows.ts` 管理 row composition、ordering、transaction row helpers
@@ -66,7 +67,9 @@ UI → Actions → Epics → Services → IndexedDB/Network → Actions
   - 遠端 manifest / chunks 存在 sync storage
   - 本機啟用狀態與同步 metadata 存在 local storage
   - payload 使用精簡 dump-like rows，但不等同於完整 backup dump
-  - merge 後仍回寫 IndexedDB，讓 repository 繼續作為唯一 runtime source of truth
+  - `syncPersistence.ts` 只投影必要章節摘要，merge 後增量 upsert IndexedDB，不取代完整章節快取
+  - 背景輪詢 `checkedAt` 僅保存在本機；sync merge 保留既有值，遠端新增 subscription 預設為 `0`
+  - IndexedDB 仍是唯一 runtime source of truth
 - repository 目前分成兩層 API：
   - config / import-export：`resetLibrary`、`exportLibraryDump`、`importLibraryDump`、`setLibraryVersion`
   - query / mutation：`getPopupFeedSnapshot`、`getSeriesSnapshot`、`listSubscriptionKeys`、`applyReaderSeriesState`、`applyReadProgress`、`setSeriesSubscription*`、`dismissSeriesUpdate`、`removeSeriesFromHistory`、`removeSeriesCascade`
@@ -136,6 +139,8 @@ UI → Actions → Epics → Services → IndexedDB/Network → Actions
   - listener wiring 必須收斂非同步 rejection；需要保持 message channel 的 handler 在成功與失敗時都必須回覆
   - 更新檢查、安裝處理、通知點擊、ping 回應、reader redirect 解析集中在 `src/infra/services/background.ts`
   - 訂閱更新檢查會依 `subscriptions.checkedAt` 由舊到新取批次輪詢
+  - 更新比對以 `series.latestChapterID` 為 checkpoint，只將站點章節列表中位於 checkpoint 前方的章節視為新章
+  - checkpoint 缺失或找不到時只刷新 baseline，不把既有舊章節加入 updates
   - 每輪 background refresh 使用固定上限並發與單筆 metadata fetch timeout，避免某個慢站拖住整輪 service worker 工作
 - Repository 測試基礎：
   - 真實 IndexedDB integration tests 使用 `fake-indexeddb`

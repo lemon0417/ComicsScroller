@@ -41,7 +41,7 @@ describe("background service", () => {
       getBackgroundSeriesState: jest.fn().mockResolvedValue({
         url: "https://www.dm5.com/m123/",
         cover: "persisted-cover.jpg",
-        knownChapterIDs: ["m1"],
+        latestChapterID: "m1",
       }),
       getUpdateCount: jest
         .fn()
@@ -93,6 +93,111 @@ describe("background service", () => {
     );
   });
 
+  it("establishes a baseline without reporting updates when the checkpoint is unavailable", async () => {
+    const applyBackgroundSeriesRefresh = jest.fn().mockResolvedValue({
+      updatesCount: 0,
+    });
+    const fetchChapterPage = jest.fn(() =>
+      of({
+        title: "Demo",
+        chapterList: ["m3", "m2", "m1"],
+        chapters: {
+          m1: { title: "Ch 1", href: "https://www.dm5.com/m1/" },
+          m2: { title: "Ch 2", href: "https://www.dm5.com/m2/" },
+          m3: { title: "Ch 3", href: "https://www.dm5.com/m3/" },
+        },
+      }),
+    );
+    const getBackgroundSeriesState = jest
+      .fn()
+      .mockResolvedValueOnce({
+        url: "https://www.dm5.com/empty/",
+        cover: "",
+        latestChapterID: "",
+      })
+      .mockResolvedValueOnce({
+        url: "https://www.dm5.com/missing/",
+        cover: "",
+        latestChapterID: "m404",
+      });
+
+    const summary = await runBackgroundUpdateSummary({
+      applyBackgroundSeriesRefresh,
+      clearNotification: jest.fn(),
+      createNotification: jest.fn(),
+      getFetchChapterPage: jest.fn(() => fetchChapterPage),
+      getManifestVersion: jest.fn(() => "4.0.99"),
+      getRuntimeUrl: jest.fn((path: string) => `chrome-extension:///${path}`),
+      getBackgroundSeriesState,
+      getUpdateCount: jest.fn().mockResolvedValue(0),
+      listSubscriptionKeys: jest
+        .fn()
+        .mockResolvedValue(["dm5:empty", "dm5:missing"]),
+      markSubscriptionCheckedByKey: jest.fn(),
+      openTab: jest.fn(),
+      parseSeriesKey: jest.fn((seriesKey: string) => ({
+        site: "dm5",
+        comicsID: seriesKey.split(":")[1],
+      })),
+      reconcileExtensionReleaseState: jest.fn(),
+      refreshExtensionReleaseState: jest.fn(),
+      resetLibrary: jest.fn(),
+      setBadge: jest.fn(),
+      setLibraryVersion: jest.fn(),
+    });
+
+    expect(summary.updated).toBe(0);
+    expect(applyBackgroundSeriesRefresh).toHaveBeenCalledTimes(2);
+    expect(applyBackgroundSeriesRefresh).toHaveBeenCalledWith(
+      "dm5",
+      "empty",
+      expect.objectContaining({ chapterList: ["m3", "m2", "m1"] }),
+      [],
+    );
+    expect(applyBackgroundSeriesRefresh).toHaveBeenCalledWith(
+      "dm5",
+      "missing",
+      expect.objectContaining({ chapterList: ["m3", "m2", "m1"] }),
+      [],
+    );
+  });
+
+  it("ignores chapters discovered behind the latest checkpoint", async () => {
+    const applyBackgroundSeriesRefresh = jest.fn();
+    const summary = await runBackgroundUpdateSummary({
+      applyBackgroundSeriesRefresh,
+      clearNotification: jest.fn(),
+      createNotification: jest.fn(),
+      getFetchChapterPage: jest.fn(() => () =>
+        of({
+          title: "Demo",
+          chapterList: ["m3", "m2-backfill", "m2", "m1"],
+          chapters: {},
+        }),
+      ),
+      getManifestVersion: jest.fn(() => "4.0.99"),
+      getRuntimeUrl: jest.fn((path: string) => `chrome-extension:///${path}`),
+      getBackgroundSeriesState: jest.fn().mockResolvedValue({
+        url: "https://www.dm5.com/m123/",
+        cover: "cover.jpg",
+        latestChapterID: "m3",
+      }),
+      getUpdateCount: jest.fn().mockResolvedValue(0),
+      listSubscriptionKeys: jest.fn().mockResolvedValue(["dm5:m123"]),
+      markSubscriptionCheckedByKey: jest.fn(),
+      openTab: jest.fn(),
+      parseSeriesKey: jest.fn(() => ({ site: "dm5", comicsID: "m123" })),
+      reconcileExtensionReleaseState: jest.fn(),
+      refreshExtensionReleaseState: jest.fn(),
+      resetLibrary: jest.fn(),
+      setBadge: jest.fn(),
+      setLibraryVersion: jest.fn(),
+    });
+
+    expect(summary.updated).toBe(0);
+    expect(applyBackgroundSeriesRefresh).not.toHaveBeenCalled();
+  });
+
   it("times out a stalled subscription fetch and keeps processing the batch", async () => {
     const markSubscriptionCheckedByKey = jest.fn().mockResolvedValue(undefined);
     const fetchChapterPage = jest.fn((url: string) =>
@@ -112,12 +217,12 @@ describe("background service", () => {
       .mockResolvedValueOnce({
         url: "https://www.dm5.com/m-stuck/",
         cover: "",
-        knownChapterIDs: [],
+        latestChapterID: "",
       })
       .mockResolvedValueOnce({
         url: "https://www.dm5.com/m-ok/",
         cover: "",
-        knownChapterIDs: ["m1"],
+        latestChapterID: "m1",
       });
     const applyBackgroundSeriesRefresh = jest.fn().mockResolvedValue({
       updatesCount: 1,

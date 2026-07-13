@@ -530,7 +530,7 @@ describe("library queries", () => {
     expect(rows.loadReadChapterIDsInTransaction).not.toHaveBeenCalled();
   });
 
-  it("loads background series state with chapter ids only", async () => {
+  it("loads background series state from the series summary only", async () => {
     const seriesStore = {
       get: jest.fn(() => ({
         seriesKey: "dm5:m123",
@@ -548,18 +548,8 @@ describe("library queries", () => {
         latestChapterHref: "https://www.dm5.com/m123/2.html",
       })),
     };
-    const chapterIndex = {
-      getAllKeys: jest.fn(() => [
-        ["dm5:m123", "m2"],
-        ["dm5:m123", "m1"],
-      ]),
-    };
-    const chaptersStore = {
-      index: jest.fn(() => chapterIndex),
-    };
     const stores = {
       [SERIES_STORE]: seriesStore,
-      [CHAPTERS_STORE]: chaptersStore,
     };
     const transaction = {
       objectStore: jest.fn(
@@ -574,15 +564,10 @@ describe("library queries", () => {
     await expect(getBackgroundSeriesState("dm5:m123")).resolves.toEqual({
       url: "https://www.dm5.com/m123/",
       cover: "cover.jpg",
-      knownChapterIDs: ["m2", "m1"],
+      latestChapterID: "m2",
     });
 
-    expect(chaptersStore.index).toHaveBeenCalledWith("seriesKey");
-    expect(chapterIndex.getAllKeys).toHaveBeenCalledWith("dm5:m123");
-    expect(db.transaction).toHaveBeenCalledWith(
-      [SERIES_STORE, CHAPTERS_STORE],
-      "readonly",
-    );
+    expect(db.transaction).toHaveBeenCalledWith([SERIES_STORE], "readonly");
   });
 
   it("returns subscriptions ordered by oldest checkedAt and respects the query limit", async () => {

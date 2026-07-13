@@ -21,11 +21,11 @@ import {
 } from "./schema";
 import {
   compactDumpRowsToSnapshot,
-  ensureLibraryReady,
-  persistSnapshot,
-  readRowsFromDb,
-  rowsToSnapshot,
 } from "./shared";
+import {
+  applyLibrarySyncSnapshot,
+  readLibrarySyncProjection,
+} from "./syncPersistence";
 
 export const LIBRARY_SYNC_STATE_KEY = "librarySyncState";
 export const LIBRARY_SYNC_MAX_PAYLOAD_BYTES = 90 * 1024;
@@ -483,11 +483,6 @@ function toSyncRows(snapshot: LibrarySnapshotV2): LibraryDumpRowsV2 {
   };
 }
 
-async function readCurrentSnapshot() {
-  await ensureLibraryReady();
-  return rowsToSnapshot(await readRowsFromDb());
-}
-
 async function writeRemoteSnapshot(
   snapshot: LibrarySnapshotV2,
   state: StoredLibrarySyncState,
@@ -593,7 +588,8 @@ export async function syncLibraryNow() {
   }
 
   try {
-    const localSnapshot = await readCurrentSnapshot();
+    const localProjection = await readLibrarySyncProjection();
+    const localSnapshot = compactDumpRowsToSnapshot(localProjection.data);
     const remotePayload = await readRemotePayload();
     const remoteIsNewer = Boolean(
       remotePayload?.manifest.updatedAt &&
@@ -608,10 +604,10 @@ export async function syncLibraryNow() {
       : localSnapshot;
 
     if (remotePayload) {
-      await persistSnapshot(mergedSnapshot, {
-        signalSource: "library-sync",
-        scopes: ["series", "subscriptions", "history", "updates"],
-      });
+      await applyLibrarySyncSnapshot(
+        mergedSnapshot,
+        localProjection.subscriptionCheckedAtByKey,
+      );
     }
 
     return writeRemoteSnapshot(mergedSnapshot, {
@@ -631,7 +627,8 @@ export async function pushLibrarySyncIfEnabled() {
   }
 
   try {
-    return writeRemoteSnapshot(await readCurrentSnapshot(), {
+    const projection = await readLibrarySyncProjection();
+    return writeRemoteSnapshot(compactDumpRowsToSnapshot(projection.data), {
       ...state,
       deviceId: state.deviceId || createDeviceId(),
     });

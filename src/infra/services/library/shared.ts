@@ -117,7 +117,26 @@ function removeStorageItems(keys: string[]): Promise<void> {
   });
 }
 
-export function snapshotToDbRows(snapshot: LibrarySnapshotV2): LibraryDbRows {
+function normalizeCheckedAt(input: unknown) {
+  const value = Number(input || 0);
+  return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+export function getSubscriptionCheckedAtByKey(
+  rows: Array<{ seriesKey: string; checkedAt?: number }>,
+) {
+  return rows.reduce<Record<string, number>>((acc, row) => {
+    if (row.seriesKey) {
+      acc[row.seriesKey] = normalizeCheckedAt(row.checkedAt);
+    }
+    return acc;
+  }, {});
+}
+
+export function snapshotToDbRows(
+  snapshot: LibrarySnapshotV2,
+  subscriptionCheckedAtByKey: Record<string, number> = {},
+): LibraryDbRows {
   const series: SeriesRow[] = [];
   const chapters: ChapterRow[] = [];
   const reads: ReadRow[] = [];
@@ -136,7 +155,7 @@ export function snapshotToDbRows(snapshot: LibrarySnapshotV2): LibraryDbRows {
     subscriptions: uniqueStrings(snapshot.subscriptions).map((seriesKey, position) => ({
       seriesKey,
       position,
-      checkedAt: 0,
+      checkedAt: normalizeCheckedAt(subscriptionCheckedAtByKey[seriesKey]),
     })),
     history: uniqueStrings(snapshot.history, HISTORY_LIMIT).map((seriesKey, position) => ({
       seriesKey,
@@ -173,6 +192,7 @@ export function snapshotToRows(snapshot: LibrarySnapshotV2): LibraryDumpRowsV1 {
 
 export function snapshotToCompactDumpRows(
   snapshot: LibrarySnapshotV2,
+  subscriptionCheckedAtByKey: Record<string, number> = {},
 ): LibraryDumpRowsV2 {
   const normalizedEntries = Object.entries(snapshot.seriesByKey || {}).map(
     ([seriesKey, record]) => [seriesKey, normalizeSeriesRecord(record.site, record.comicsID, record)] as const,
@@ -198,9 +218,15 @@ export function snapshotToCompactDumpRows(
         }),
       ...(record.read.length > 0 ? { read: uniqueStrings(record.read) } : {}),
     })),
-    subscriptions: uniqueStrings(snapshot.subscriptions).map((seriesKey) => ({
-      seriesKey,
-    })),
+    subscriptions: uniqueStrings(snapshot.subscriptions).map((seriesKey) => {
+      const checkedAt = normalizeCheckedAt(
+        subscriptionCheckedAtByKey[seriesKey],
+      );
+      return {
+        seriesKey,
+        ...(checkedAt > 0 ? { checkedAt } : {}),
+      };
+    }),
     history: uniqueStrings(snapshot.history, HISTORY_LIMIT),
     updates: (Array.isArray(snapshot.updates) ? snapshot.updates : [])
       .map((item) => ({
@@ -481,10 +507,14 @@ export async function persistSnapshot(
     signalSource?: string;
     scopes?: LibrarySignal["scopes"];
     seriesKeys?: string[];
+    subscriptionCheckedAtByKey?: Record<string, number>;
   } = {},
 ) {
   const normalized = migrateV2(snapshot as LegacyStore);
-  await writeRowsToDb(snapshotToDbRows(normalized), normalized.version);
+  await writeRowsToDb(
+    snapshotToDbRows(normalized, options.subscriptionCheckedAtByKey),
+    normalized.version,
+  );
   if (options.cleanupLegacy) {
     await cleanupLegacyStorage();
   }
@@ -507,7 +537,10 @@ export async function ensureLibraryReady() {
         if (Number(meta?.value?.dbSchemaVersion || 0) < LIBRARY_DB_VERSION) {
           const rows = await readRowsFromDb();
           await writeRowsToDb(
-            snapshotToDbRows(rowsToSnapshot(rows)),
+            snapshotToDbRows(
+              rowsToSnapshot(rows),
+              getSubscriptionCheckedAtByKey(rows.subscriptions),
+            ),
             meta?.value?.version || getExtensionVersion(),
           );
         }

@@ -48,7 +48,7 @@ export type ReaderSeriesSyncState = {
 export type BackgroundSeriesState = {
   url: string;
   cover: string;
-  knownChapterIDs: string[];
+  latestChapterID: string;
 };
 
 export function createEmptyPopupFeedSnapshot(): PopupFeedSnapshot {

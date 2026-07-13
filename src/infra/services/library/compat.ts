@@ -14,6 +14,7 @@ import {
 } from "./schema";
 import {
   ensureLibraryReady,
+  getSubscriptionCheckedAtByKey,
   isLibraryDumpV1,
   isLibraryDumpV2,
   migrateCompactDump,
@@ -27,7 +28,13 @@ import {
 
 async function loadLibrary() {
   await ensureLibraryReady();
-  return rowsToSnapshot(await readRowsFromDb());
+  const rows = await readRowsFromDb();
+  return {
+    snapshot: rowsToSnapshot(rows),
+    subscriptionCheckedAtByKey: getSubscriptionCheckedAtByKey(
+      rows.subscriptions,
+    ),
+  };
 }
 
 function hasGzipMagic(bytes: Uint8Array) {
@@ -173,13 +180,16 @@ export async function resetLibrary() {
 }
 
 export async function exportLibraryDump(): Promise<LibraryDumpV2> {
-  const snapshot = await loadLibrary();
+  const { snapshot, subscriptionCheckedAtByKey } = await loadLibrary();
   return {
     format: "comic-scroller-db-dump",
     formatVersion: 2,
     exportedAt: Date.now(),
     dbSchemaVersion: LIBRARY_DB_VERSION,
-    data: snapshotToCompactDumpRows(snapshot),
+    data: snapshotToCompactDumpRows(
+      snapshot,
+      subscriptionCheckedAtByKey,
+    ),
   };
 }
 
@@ -201,6 +211,10 @@ export async function importLibraryDump(raw: unknown) {
     signalSource: "importLibrary",
     scopes: ["series", "subscriptions", "history", "updates"],
     seriesKeys: Object.keys(snapshot.seriesByKey || {}),
+    subscriptionCheckedAtByKey:
+      isLibraryDumpV2(parsed) || isLibraryDumpV1(parsed)
+        ? getSubscriptionCheckedAtByKey(parsed.data.subscriptions || [])
+        : {},
   });
 }
 
