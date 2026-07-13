@@ -26,6 +26,20 @@ export type LibraryUpdateRecord = {
   chapterID: string;
 };
 
+export type ReadProgressMutationResult = {
+  seriesKey: SeriesKey;
+  readChapterIDs: string[];
+  updatesCount: number;
+};
+
+export type ReaderSeriesMutationResult = ReadProgressMutationResult & {
+  subscribed: boolean;
+};
+
+export type BackgroundSeriesRefreshResult = {
+  updatesCount: number;
+};
+
 function canonicalizeComicsID(site: string, comicsID: string) {
   const raw = String(comicsID || "");
   if (!raw) return "";

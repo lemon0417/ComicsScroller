@@ -36,6 +36,7 @@ UI → Actions → Epics → Services → IndexedDB/Network → Actions
   - `library/compat.ts`
   - `library/signal.ts`
   - `library/sync.ts`
+  - `library/syncModel.ts`
   - `library/syncPersistence.ts`
 - `library/models.ts` 只作為 repository 相容 re-export；新程式碼若只需要型別/純 contract，優先從 `@domain/library` 取用
 - `library/db.ts` 管理 IndexedDB open / upgrade、request promise、transaction promise
@@ -61,13 +62,15 @@ UI → Actions → Epics → Services → IndexedDB/Network → Actions
   - popup/manage 的章節標題摘要
   - background 更新比對
 - `subscriptions` row 保留 UI 顯示排序 `position`，並額外記錄背景輪詢用的 `checkedAt`
+- runtime `checkedAt` 永遠是數字，未輪詢使用 `0`；DB v7 upgrade 會修復舊 row
 - `updates` row 只保留 `seriesKey / chapterID / position`；runtime 不再保存 `createdAt`
 - `chrome.storage.local.librarySignal` 用於跨 context 通知資料已變更
 - `chrome.storage.sync` 的 library sync payload 由 `library/sync.ts` 管理：
   - 遠端 manifest / chunks 存在 sync storage
   - 本機啟用狀態與同步 metadata 存在 local storage
-  - payload 使用精簡 dump-like rows，但不等同於完整 backup dump
-  - `syncPersistence.ts` 只投影必要章節摘要，merge 後增量 upsert IndexedDB，不取代完整章節快取
+  - 內部 `LibrarySyncStateV1` 與 Chrome Sync v1 wire rows 是獨立 contract，不共用完整 backup dump / runtime snapshot 型別
+  - `syncModel.ts` 集中處理 wire adapter 與 state merge，並明確保存 latest / lastRead / read / chapter summaries
+  - `syncPersistence.ts` 直接讀寫 sync state，只投影必要章節摘要，merge 後增量 upsert IndexedDB，不取代完整章節快取
   - 背景輪詢 `checkedAt` 僅保存在本機；sync merge 保留既有值，遠端新增 subscription 預設為 `0`
   - IndexedDB 仍是唯一 runtime source of truth
 - repository 目前分成兩層 API：
@@ -134,6 +137,8 @@ UI → Actions → Epics → Services → IndexedDB/Network → Actions
   - `readerSyncEpic` 收到相關 signal、只需確認作品是否存在與是否已追蹤時，使用 `getReaderSeriesSyncState()`；快速連續 signal 以最後一次 query 為準
   - 只有真的需要完整 chapter list / read state 時，才使用 `getReaderSeriesState()`
   - `applyReadProgress()` 只更新閱讀進度與 updates，不應重寫章節快取；章節快取刷新由 metadata/background 流程負責
+  - reader metadata mutation 只回傳 `seriesKey / readChapterIDs / subscribed / updatesCount`；需要完整作品資料時必須走 query interface
+  - read progress mutation 不查 subscription，只回傳 `seriesKey / readChapterIDs / updatesCount`
 - Background：
   - `src/background.ts` 只保留 MV3 listener wiring
   - listener wiring 必須收斂非同步 rejection；需要保持 message channel 的 handler 在成功與失敗時都必須回覆
@@ -142,6 +147,7 @@ UI → Actions → Epics → Services → IndexedDB/Network → Actions
   - 更新比對以 `series.latestChapterID` 為 checkpoint，只將站點章節列表中位於 checkpoint 前方的章節視為新章
   - checkpoint 缺失或找不到時只刷新 baseline，不把既有舊章節加入 updates
   - 每輪 background refresh 使用固定上限並發與單筆 metadata fetch timeout，避免某個慢站拖住整輪 service worker 工作
+  - background refresh mutation 只回傳 `updatesCount`，不回傳可能只 hydrate 部分欄位的 `SeriesRecord`
 - Repository 測試基礎：
   - 真實 IndexedDB integration tests 使用 `fake-indexeddb`
   - 低階 DB helper 位於 `library/db.ts`，row helper 位於 `library/rows.ts`；舊有測試可透過 `library/shared.ts` compatibility re-export 過渡

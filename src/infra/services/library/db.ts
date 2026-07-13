@@ -1,3 +1,4 @@
+import type { SeriesRow, SubscriptionRow } from "./schema";
 import {
   CHAPTERS_STORE,
   HISTORY_STORE,
@@ -55,12 +56,51 @@ function ensureStoreIndex(
   store.createIndex(indexName, keyPath, { unique: false });
 }
 
+function normalizeCheckedAt(input: unknown) {
+  const value = Number(input || 0);
+  return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+function migrateLibraryDbV7(request: IDBOpenDBRequest, oldVersion: number) {
+  const transaction = request.transaction;
+  if (!transaction || oldVersion >= 7) return;
+
+  const seriesStore = transaction.objectStore(SERIES_STORE);
+  const readsStore = transaction.objectStore(READS_STORE);
+  const seriesCursor = seriesStore.openCursor();
+  seriesCursor.onsuccess = () => {
+    const cursor = seriesCursor.result;
+    if (!cursor) return;
+    const row = cursor.value as Partial<SeriesRow>;
+    if (row.seriesKey && row.lastRead) {
+      readsStore.put({
+        seriesKey: row.seriesKey,
+        chapterID: row.lastRead,
+      });
+    }
+    cursor.continue();
+  };
+
+  const subscriptionsStore = transaction.objectStore(SUBSCRIPTIONS_STORE);
+  const subscriptionCursor = subscriptionsStore.openCursor();
+  subscriptionCursor.onsuccess = () => {
+    const cursor = subscriptionCursor.result;
+    if (!cursor) return;
+    const row = cursor.value as Partial<SubscriptionRow>;
+    const checkedAt = normalizeCheckedAt(row.checkedAt);
+    if (row.checkedAt !== checkedAt) {
+      cursor.update({ ...row, checkedAt });
+    }
+    cursor.continue();
+  };
+}
+
 export function openLibraryDb() {
   if (!dbPromise) {
     ensureIndexedDb();
     dbPromise = new Promise((resolve, reject) => {
       const request = indexedDB.open(LIBRARY_DB_NAME, LIBRARY_DB_VERSION);
-      request.onupgradeneeded = () => {
+      request.onupgradeneeded = (event) => {
         const db = request.result;
         if (!db.objectStoreNames.contains(META_STORE)) {
           db.createObjectStore(META_STORE, { keyPath: "key" });
@@ -115,6 +155,7 @@ export function openLibraryDb() {
             updates.deleteIndex("createdAt");
           }
         }
+        migrateLibraryDbV7(request, event.oldVersion);
       };
       request.onsuccess = () => {
         const db = request.result;

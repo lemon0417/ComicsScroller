@@ -3,6 +3,7 @@ import {
   applyReadProgress,
   removeSeriesCascade,
   removeSeriesFromHistory,
+  setSeriesSubscriptionByKey,
   toggleSeriesSubscriptionByKey,
 } from "./mutations";
 import {
@@ -150,7 +151,7 @@ describe("library mutations", () => {
       delete: jest.fn(() => undefined),
     };
     const seriesStore = {
-      get: jest.fn(() => undefined),
+      get: jest.fn((): any => undefined),
     };
     const chaptersStore = {
       index: jest.fn(() => ({
@@ -209,6 +210,11 @@ describe("library mutations", () => {
     rows.loadOrderedSubscriptionRowsInTransaction.mockResolvedValue([
       { seriesKey: "sf:77", position: 0, checkedAt: 100 },
     ]);
+    seriesStore.get.mockReturnValue({
+      seriesKey: "dm5:m123",
+      site: "dm5",
+      comicsID: "m123",
+    });
 
     await expect(toggleSeriesSubscriptionByKey("dm5:m123")).resolves.toBe(true);
     expect(subscriptionsStore.put).toHaveBeenCalledWith({
@@ -217,6 +223,50 @@ describe("library mutations", () => {
       checkedAt: 0,
     });
     expect(rows.writeOrderedSeriesKeysInTransaction).not.toHaveBeenCalled();
+  });
+
+  it("does not create subscriptions for missing series and cleans dangling rows", async () => {
+    const seriesStore = {
+      get: jest.fn(() => undefined),
+    };
+    const subscriptionsStore = {
+      put: jest.fn(() => undefined),
+      delete: jest.fn(() => undefined),
+    };
+    const stores = {
+      [SERIES_STORE]: seriesStore,
+      [SUBSCRIPTIONS_STORE]: subscriptionsStore,
+    };
+    const transaction = {
+      objectStore: jest.fn(
+        (storeName: keyof typeof stores) => stores[storeName],
+      ),
+    };
+    dbModule.openLibraryDb.mockResolvedValue({
+      transaction: jest.fn(() => transaction),
+    });
+    rows.loadOrderedSubscriptionRowsInTransaction.mockResolvedValueOnce([]);
+
+    await expect(
+      setSeriesSubscriptionByKey("dm5:missing", true),
+    ).resolves.toBe(false);
+    expect(subscriptionsStore.put).not.toHaveBeenCalled();
+    expect(subscriptionsStore.delete).not.toHaveBeenCalled();
+    expect(shared.emitLibrarySignal).not.toHaveBeenCalled();
+
+    rows.loadOrderedSubscriptionRowsInTransaction.mockResolvedValueOnce([
+      { seriesKey: "dm5:missing", position: 0, checkedAt: 0 },
+    ]);
+
+    await expect(
+      setSeriesSubscriptionByKey("dm5:missing", true),
+    ).resolves.toBe(false);
+    expect(subscriptionsStore.delete).toHaveBeenCalledWith("dm5:missing");
+    expect(shared.emitLibrarySignal).toHaveBeenCalledWith(
+      "setSubscription",
+      ["subscriptions"],
+      ["dm5:missing"],
+    );
   });
 
   it("removes only history entries without touching series data", async () => {
@@ -378,10 +428,12 @@ describe("library mutations", () => {
     );
     expect(result).toEqual(
       expect.objectContaining({
+        seriesKey: "dm5:m123",
+        readChapterIDs: ["m1", "m2"],
         updatesCount: 0,
-        subscribed: false,
       }),
     );
+    expect(result).not.toHaveProperty("subscribed");
   });
 
   it("prepends only new background updates without rewriting the entire store", async () => {
@@ -502,13 +554,7 @@ describe("library mutations", () => {
       ["series", "updates"],
       ["dm5:m123"],
     );
-    expect(result.series).toEqual(
-      expect.objectContaining({
-        title: "Demo",
-        chapterList: ["m3", "m2", "m1"],
-      }),
-    );
-    expect(result.updatesCount).toBe(3);
+    expect(result).toEqual({ updatesCount: 3 });
   });
 
   it("rebalances sparse update positions after repeated prepends cross the threshold", async () => {

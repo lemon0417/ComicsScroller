@@ -1,3 +1,9 @@
+import type {
+  BackgroundSeriesRefreshResult,
+  ReaderSeriesMutationResult,
+  ReadProgressMutationResult,
+} from "@domain/library";
+
 import {
   openLibraryDb,
   requestToPromise,
@@ -165,7 +171,7 @@ async function persistSeriesRecordState(
 
   return {
     seriesKey,
-    series: mergedRecord,
+    readChapterIDs: mergedRecord.read,
     subscribed,
     updatesCount: Number(updatesCount || 0),
   };
@@ -467,27 +473,29 @@ async function mutateSeriesUpdates(
   return Number(updatesCount || 0);
 }
 
-async function rewriteOrderedSeriesStore(
-  storeName: typeof SUBSCRIPTIONS_STORE | typeof HISTORY_STORE,
+async function rewriteHistoryStore(
   seriesKey: string,
   updater: (seriesKeys: string[]) => string[],
   source: string,
-  scope: "subscriptions" | "history",
   options: {
     pruneIfOrphaned?: boolean;
   } = {},
 ) {
   await ensureLibraryReady();
-  const storeNames = [
-    storeName,
-    ...(options.pruneIfOrphaned
-      ? [SERIES_STORE, CHAPTERS_STORE, READS_STORE, SUBSCRIPTIONS_STORE, HISTORY_STORE, UPDATES_STORE]
-      : []),
-  ] as const;
+  const storeNames = options.pruneIfOrphaned
+    ? [
+        SERIES_STORE,
+        CHAPTERS_STORE,
+        READS_STORE,
+        SUBSCRIPTIONS_STORE,
+        HISTORY_STORE,
+        UPDATES_STORE,
+      ]
+    : [HISTORY_STORE];
   const db = await openLibraryDb();
   const transaction = db.transaction(storeNames, "readwrite");
   const done = transactionDone(transaction);
-  const store = transaction.objectStore(storeName);
+  const store = transaction.objectStore(HISTORY_STORE);
   const seriesStore = options.pruneIfOrphaned
     ? transaction.objectStore(SERIES_STORE)
     : null;
@@ -506,10 +514,10 @@ async function rewriteOrderedSeriesStore(
   const updatesStore = options.pruneIfOrphaned
     ? transaction.objectStore(UPDATES_STORE)
     : null;
-  const currentRows =
-    storeName === SUBSCRIPTIONS_STORE
-      ? await loadOrderedSubscriptionRowsInTransaction(store)
-      : await loadRowsByPositionInTransaction<{ seriesKey: string; position: number }>(store);
+  const currentRows = await loadRowsByPositionInTransaction<{
+    seriesKey: string;
+    position: number;
+  }>(store);
   const currentKeys = currentRows.map((row) => row.seriesKey);
   const nextKeys = updater(currentKeys);
   const removed = currentKeys.includes(seriesKey) && !nextKeys.includes(seriesKey);
@@ -520,32 +528,10 @@ async function rewriteOrderedSeriesStore(
   } else if (prepended) {
     await prependOrderedSeriesKeyInTransaction(store, seriesKey, {
       currentRows,
-      ...(storeName === HISTORY_STORE
-        ? { limit: HISTORY_LIMIT }
-        : {}),
-      ...(storeName === SUBSCRIPTIONS_STORE
-        ? {
-            resolveRowData: (row?: { checkedAt?: number }) => ({
-              checkedAt: Number(row?.checkedAt || 0),
-            }),
-          }
-        : {}),
+      limit: HISTORY_LIMIT,
     });
   } else {
-    await writeOrderedSeriesKeysInTransaction(
-      store,
-      nextKeys,
-      storeName === SUBSCRIPTIONS_STORE
-        ? (currentSeriesKey) => {
-            const row = currentRows.find(
-              (item) => item.seriesKey === currentSeriesKey,
-            ) as SubscriptionRow | undefined;
-            return {
-              checkedAt: Number(row?.checkedAt || 0),
-            };
-          }
-        : undefined,
-    );
+    await writeOrderedSeriesKeysInTransaction(store, nextKeys);
   }
   const pruned = options.pruneIfOrphaned && seriesStore && chaptersStore && readsStore && subscriptionsStore && historyStore && updatesStore
     ? await pruneSeriesCacheIfOrphanedInTransaction(
@@ -563,24 +549,80 @@ async function rewriteOrderedSeriesStore(
   await done;
   await emitLibrarySignal(
     source,
-    [scope, ...(pruned ? ["series" as const] : [])],
+    ["history", ...(pruned ? ["series" as const] : [])],
     [seriesKey],
   );
 }
 
 export async function setSeriesSubscriptionByKey(seriesKey: string, subscribed: boolean) {
-  await rewriteOrderedSeriesStore(
-    SUBSCRIPTIONS_STORE,
-    seriesKey,
-    (seriesKeys) =>
-      subscribed
-        ? uniqueStrings([seriesKey, ...seriesKeys])
-        : seriesKeys.filter((item) => item !== seriesKey),
+  await ensureLibraryReady();
+  const storeNames = subscribed
+    ? [SERIES_STORE, SUBSCRIPTIONS_STORE]
+    : [
+        SERIES_STORE,
+        CHAPTERS_STORE,
+        READS_STORE,
+        SUBSCRIPTIONS_STORE,
+        HISTORY_STORE,
+        UPDATES_STORE,
+      ];
+  const db = await openLibraryDb();
+  const transaction = db.transaction(storeNames, "readwrite");
+  const done = transactionDone(transaction);
+  const seriesStore = transaction.objectStore(SERIES_STORE);
+  const subscriptionsStore = transaction.objectStore(SUBSCRIPTIONS_STORE);
+  const [seriesRow, subscriptionRows] = await Promise.all([
+    requestToPromise<SeriesRow | undefined>(seriesStore.get(seriesKey)),
+    loadOrderedSubscriptionRowsInTransaction(subscriptionsStore),
+  ]);
+  const hasSubscription = subscriptionRows.some(
+    (row) => row.seriesKey === seriesKey,
+  );
+
+  if (subscribed && !seriesRow) {
+    if (hasSubscription) {
+      await removeOrderedSeriesKeyInTransaction(subscriptionsStore, seriesKey);
+    }
+    await done;
+    if (hasSubscription) {
+      await emitLibrarySignal(
+        "setSubscription",
+        ["subscriptions"],
+        [seriesKey],
+      );
+    }
+    return false;
+  }
+
+  if (subscribed) {
+    await prependOrderedSeriesKeyInTransaction(subscriptionsStore, seriesKey, {
+      currentRows: subscriptionRows,
+      resolveRowData: (row?: { checkedAt?: number }) => ({
+        checkedAt: Number(row?.checkedAt || 0),
+      }),
+    });
+  } else {
+    await removeOrderedSeriesKeyInTransaction(subscriptionsStore, seriesKey);
+  }
+
+  const pruned = !subscribed
+    ? await pruneSeriesCacheIfOrphanedInTransaction(
+        {
+          seriesStore,
+          chaptersStore: transaction.objectStore(CHAPTERS_STORE),
+          readsStore: transaction.objectStore(READS_STORE),
+          subscriptionsStore,
+          historyStore: transaction.objectStore(HISTORY_STORE),
+          updatesStore: transaction.objectStore(UPDATES_STORE),
+        },
+        seriesKey,
+      )
+    : false;
+  await done;
+  await emitLibrarySignal(
     "setSubscription",
-    "subscriptions",
-    {
-      pruneIfOrphaned: !subscribed,
-    },
+    ["subscriptions", ...(pruned ? ["series" as const] : [])],
+    [seriesKey],
   );
   return subscribed;
 }
@@ -603,6 +645,13 @@ export async function toggleSeriesSubscriptionByKey(seriesKey: string) {
     subscriptionsStore,
   );
   const nextSubscribed = !subscriptionRows.some((row) => row.seriesKey === seriesKey);
+  if (
+    nextSubscribed &&
+    !(await requestToPromise<SeriesRow | undefined>(seriesStore.get(seriesKey)))
+  ) {
+    await done;
+    return false;
+  }
   if (nextSubscribed) {
     await prependOrderedSeriesKeyInTransaction(subscriptionsStore, seriesKey, {
       currentRows: subscriptionRows,
@@ -690,12 +739,10 @@ export async function dismissSeriesUpdate(
 
 export async function removeSeriesFromHistory(site: SiteKey, comicsID: string) {
   const seriesKey = buildSeriesKey(site, comicsID);
-  await rewriteOrderedSeriesStore(
-    HISTORY_STORE,
+  await rewriteHistoryStore(
     seriesKey,
     (seriesKeys) => seriesKeys.filter((item) => item !== seriesKey),
     "removeHistory",
-    "history",
     {
       pruneIfOrphaned: true,
     },
@@ -744,7 +791,7 @@ export async function applyReaderSeriesState(
   comicsID: string,
   record: Partial<SeriesRecord>,
   chapterID: string,
-) {
+): Promise<ReaderSeriesMutationResult> {
   return persistSeriesRecordState(site, comicsID, {
     record,
     readChapterID: chapterID,
@@ -754,11 +801,20 @@ export async function applyReaderSeriesState(
   });
 }
 
-export async function applyReadProgress(site: SiteKey, comicsID: string, chapterID: string) {
-  return persistSeriesRecordState(site, comicsID, {
+export async function applyReadProgress(
+  site: SiteKey,
+  comicsID: string,
+  chapterID: string,
+): Promise<ReadProgressMutationResult> {
+  const result = await persistSeriesRecordState(site, comicsID, {
     readChapterID: chapterID,
     dismissChapterID: chapterID,
   });
+  return {
+    seriesKey: result.seriesKey,
+    readChapterIDs: result.readChapterIDs,
+    updatesCount: result.updatesCount,
+  };
 }
 
 export async function applyBackgroundSeriesRefresh(
@@ -766,7 +822,7 @@ export async function applyBackgroundSeriesRefresh(
   comicsID: string,
   record: BackgroundRefreshRecordInput,
   newChapterIDs: string[],
-) {
+): Promise<BackgroundSeriesRefreshResult> {
   await ensureLibraryReady();
   const seriesKey = buildSeriesKey(site, comicsID);
   const db = await openLibraryDb();
@@ -805,7 +861,6 @@ export async function applyBackgroundSeriesRefresh(
   await done;
   await emitLibrarySignal("backgroundRefresh", ["series", "updates"], [seriesKey]);
   return {
-    series: mergedRecord,
     updatesCount: Number(updatesCount || 0),
   };
 }

@@ -27,7 +27,8 @@ import {
 
 jest.mock("@infra/services/library/reader", () => ({
   applyReaderSeriesState: jest.fn(async () => ({
-    series: { read: [] },
+    seriesKey: "dm5:demo-series",
+    readChapterIDs: [],
     subscribed: false,
     updatesCount: 0,
   })),

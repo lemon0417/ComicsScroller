@@ -13,7 +13,7 @@ import {
 } from "@domain/library";
 
 export const LIBRARY_SCHEMA_VERSION = 2;
-export const LIBRARY_DB_VERSION = 6;
+export const LIBRARY_DB_VERSION = 7;
 export const HISTORY_LIMIT = 50;
 export const LIBRARY_SIGNAL_KEY = "librarySignal";
 
@@ -89,7 +89,7 @@ export type ReadRow = {
 export type SubscriptionRow = {
   seriesKey: SeriesKey;
   position: number;
-  checkedAt?: number;
+  checkedAt: number;
 };
 
 export type HistoryRow = {
@@ -114,10 +114,16 @@ export type LibraryDumpSeriesRow = SeriesRow & {
   read?: string[];
 };
 
+export type LibraryDumpSubscriptionRow = {
+  seriesKey: SeriesKey;
+  position: number;
+  checkedAt?: number;
+};
+
 export type LibraryDumpRowsV1 = {
   series: LibraryDumpSeriesRow[];
   chapters: ChapterRow[];
-  subscriptions: SubscriptionRow[];
+  subscriptions: LibraryDumpSubscriptionRow[];
   history: HistoryRow[];
   updates: Array<UpdateRow & { createdAt?: number }>;
 };
@@ -210,6 +216,7 @@ export function normalizeSeriesRecord(
   record: unknown,
 ): SeriesRecord {
   const source = toRecord(record);
+  const lastRead = typeof source.lastRead === "string" ? source.lastRead : "";
   const normalizedComicsID = parseSeriesKey(
     buildSeriesKey(site, comicsID),
   ).comicsID;
@@ -233,8 +240,8 @@ export function normalizeSeriesRecord(
     url: typeof source.url === "string" ? source.url : "",
     chapterList: normalizedChapterList,
     chapters: normalizedChapters,
-    lastRead: typeof source.lastRead === "string" ? source.lastRead : "",
-    read: uniqueStrings(source.read),
+    lastRead,
+    read: uniqueStrings([...uniqueStrings(source.read), lastRead]),
   };
 }
 

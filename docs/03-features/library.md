@@ -29,7 +29,8 @@
   - `series` row 不再保存 `read[]`
 - `subscriptions`
   - 儲存追蹤清單排序與背景輪詢狀態
-  - 欄位：`seriesKey / position / checkedAt?`
+  - 欄位：`seriesKey / position / checkedAt`
+  - runtime `checkedAt` 必為有限數字；尚未輪詢時使用 `0`
 - `history`
   - 儲存閱讀紀錄排序
   - 欄位：`seriesKey / position`
@@ -97,6 +98,8 @@
   - latest / lastRead / read / update 需要的章節摘要
 - 不同步完整章節快取、背景輪詢 `checkedAt`、debug 設定或 reader UI state
 - sync projection 只讀 latest / lastRead / read / update 涉及的章節 row，不 hydrate 完整 `chapters` store
+- repository 內部使用獨立的 `LibrarySyncStateV1`，明確保存 `latestChapterID / lastReadChapterID / readChapterIDs / chapterSummaries`
+- Chrome Sync v1 wire adapter 集中負責 `LibrarySyncStateV1` 與既有遠端 JSON shape 的轉換；不借用完整 backup dump 或 runtime snapshot 型別
 - pull merge 以增量方式 upsert series、章節摘要與 reads，不刪除本機完整章節快取
 - `checkedAt` 不進入遠端 payload；既有 subscription merge 時保留本機值，遠端新增項目從 `0` 開始
 - 寫入前會檢查安全配額上限 `90KB`；超過時只回寫同步錯誤，不覆蓋本機 IndexedDB
@@ -111,6 +114,8 @@
 - background 以 `series.latestChapterID` 作為更新 checkpoint，不把 sync 的部分章節摘要誤認為完整章節基線
 - checkpoint 不存在或已不在站點列表時，下一次背景 refresh 只建立完整 baseline，不產生舊章節更新提醒
 - `reads` 是 runtime query 用的結構化資料，不是 dump-only 欄位
+- `lastRead` 是查詢摘要 checkpoint，同時必須存在於 `reads`；匯入、sync apply 與 DB upgrade 都會修復此不變量
+- `subscriptions.seriesKey` 必須指向既有 `series`；subscribe mutation 會在同一 transaction 驗證，unsubscribe 可清除歷史 dangling row
 - 若作品不再被 `subscriptions / history / updates` 任一列表引用，repository 會回收 orphaned：
   - `series`
   - `chapters`
@@ -131,3 +136,4 @@
 - 新功能不要再把 dump row 當成 runtime row 使用
 - 新功能若只需要 popup / manage 摘要，優先查 `series` summary，不要 hydrate 全量章節快取
 - 若調整匯出格式，優先新增 `formatVersion`，不要破壞既有匯入相容
+- DB v7 未改變 stores / keys / indexes，只正規化既有 `lastRead -> reads` 與 `subscriptions.checkedAt`

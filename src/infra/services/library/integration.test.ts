@@ -18,6 +18,7 @@ let compat: typeof import("./compat");
 let mutations: typeof import("./mutations");
 let queries: typeof import("./queries");
 let shared: typeof import("./shared");
+let syncModel: typeof import("./syncModel");
 let syncPersistence: typeof import("./syncPersistence");
 
 if (typeof globalThis.structuredClone !== "function") {
@@ -259,6 +260,115 @@ async function seedLegacyLibraryDbV1() {
   });
 }
 
+async function seedLibraryDbV6WithMissingInvariants() {
+  await new Promise<void>((resolve, reject) => {
+    const openRequest = indexedDB.open("comic-scroller-library", 6);
+    openRequest.onupgradeneeded = () => {
+      const db = openRequest.result;
+      db.createObjectStore(META_STORE, { keyPath: "key" });
+      db.createObjectStore(SERIES_STORE, { keyPath: "seriesKey" });
+      const chapters = db.createObjectStore(CHAPTERS_STORE, {
+        keyPath: ["seriesKey", "chapterID"],
+      });
+      chapters.createIndex("seriesKey", "seriesKey", { unique: false });
+      const reads = db.createObjectStore(READS_STORE, {
+        keyPath: ["seriesKey", "chapterID"],
+      });
+      reads.createIndex("seriesKey", "seriesKey", { unique: false });
+      const subscriptions = db.createObjectStore(SUBSCRIPTIONS_STORE, {
+        keyPath: "seriesKey",
+      });
+      subscriptions.createIndex("position", "position", { unique: false });
+      subscriptions.createIndex(
+        "checkedAtPosition",
+        ["checkedAt", "position"],
+        { unique: false },
+      );
+      const history = db.createObjectStore(HISTORY_STORE, {
+        keyPath: "seriesKey",
+      });
+      history.createIndex("position", "position", { unique: false });
+      const updates = db.createObjectStore(UPDATES_STORE, {
+        keyPath: ["seriesKey", "chapterID"],
+      });
+      updates.createIndex("position", "position", { unique: false });
+    };
+    openRequest.onerror = () => reject(openRequest.error);
+    openRequest.onsuccess = () => {
+      const db = openRequest.result;
+      const transaction = db.transaction(
+        [
+          META_STORE,
+          SERIES_STORE,
+          CHAPTERS_STORE,
+          READS_STORE,
+          SUBSCRIPTIONS_STORE,
+          HISTORY_STORE,
+          UPDATES_STORE,
+        ],
+        "readwrite",
+      );
+      transaction.objectStore(META_STORE).put({
+        key: LIBRARY_META_KEY,
+        value: {
+          initialized: true,
+          version: "4.0.52",
+          schemaVersion: 2,
+          dbSchemaVersion: 6,
+          updatedAt: 1,
+        },
+      });
+      transaction.objectStore(SERIES_STORE).put({
+        seriesKey: "dm5:m123",
+        site: "dm5",
+        comicsID: "m123",
+        title: "V6 Demo",
+        cover: "cover.jpg",
+        url: "https://www.dm5.com/m123/",
+        lastRead: "m1",
+        lastReadTitle: "Ch 1",
+        lastReadHref: "https://www.dm5.com/m1/",
+        latestChapterID: "m2",
+        latestChapterTitle: "Ch 2",
+        latestChapterHref: "https://www.dm5.com/m2/",
+      });
+      transaction.objectStore(CHAPTERS_STORE).put({
+        seriesKey: "dm5:m123",
+        chapterID: "m2",
+        title: "Ch 2",
+        href: "https://www.dm5.com/m2/",
+        orderIndex: 0,
+      });
+      transaction.objectStore(CHAPTERS_STORE).put({
+        seriesKey: "dm5:m123",
+        chapterID: "m1",
+        title: "Ch 1",
+        href: "https://www.dm5.com/m1/",
+        orderIndex: 1,
+      });
+      transaction.objectStore(SUBSCRIPTIONS_STORE).put({
+        seriesKey: "dm5:m123",
+        position: 4,
+      });
+      transaction.objectStore(HISTORY_STORE).put({
+        seriesKey: "dm5:m123",
+        position: 7,
+      });
+      transaction.objectStore(UPDATES_STORE).put({
+        seriesKey: "dm5:m123",
+        chapterID: "m2",
+        position: 9,
+      });
+      transaction.oncomplete = () => {
+        db.close();
+        resolve();
+      };
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error);
+    };
+  });
+}
+
 describe("library integration", () => {
   let chromeEnv: ReturnType<typeof createChromeMock>;
 
@@ -271,6 +381,7 @@ describe("library integration", () => {
     mutations = await import("./mutations");
     queries = await import("./queries");
     shared = await import("./shared");
+    syncModel = await import("./syncModel");
     syncPersistence = await import("./syncPersistence");
   });
 
@@ -888,6 +999,76 @@ describe("library integration", () => {
     });
   });
 
+  it("persists lastRead as a read even when imported data omits read", async () => {
+    await compat.importLibraryDump({
+      format: "comic-scroller-db-dump",
+      formatVersion: 2,
+      exportedAt: 1,
+      dbSchemaVersion: LIBRARY_DB_VERSION,
+      data: {
+        series: [
+          {
+            site: "dm5",
+            comicsID: "m123",
+            title: "Demo",
+            cover: "",
+            url: "https://www.dm5.com/m123/",
+            lastRead: "m1",
+            chapters: [
+              {
+                chapterID: "m1",
+                title: "Ch 1",
+                href: "https://www.dm5.com/m1/",
+              },
+            ],
+          },
+        ],
+        subscriptions: [],
+        history: ["dm5:m123"],
+        updates: [],
+      },
+    });
+
+    await expect(queries.getReaderSeriesState("dm5:m123")).resolves.toMatchObject({
+      series: {
+        lastRead: "m1",
+        read: ["m1"],
+      },
+    });
+    const rows = await shared.readRowsFromDb();
+    expect(rows.reads).toEqual([
+      { seriesKey: "dm5:m123", chapterID: "m1" },
+    ]);
+  });
+
+  it("rejects missing-series subscriptions and removes dangling references", async () => {
+    await expect(
+      mutations.setSeriesSubscriptionByKey("dm5:missing", true),
+    ).resolves.toBe(false);
+
+    const db = await shared.openLibraryDb();
+    let transaction = db.transaction([SUBSCRIPTIONS_STORE], "readwrite");
+    await shared.requestToPromise(
+      transaction.objectStore(SUBSCRIPTIONS_STORE).put({
+        seriesKey: "dm5:missing",
+        position: 0,
+        checkedAt: 0,
+      }),
+    );
+    await shared.transactionDone(transaction);
+
+    await expect(
+      mutations.setSeriesSubscriptionByKey("dm5:missing", false),
+    ).resolves.toBe(false);
+
+    transaction = db.transaction([SUBSCRIPTIONS_STORE], "readonly");
+    const subscriptions = await shared.requestToPromise(
+      transaction.objectStore(SUBSCRIPTIONS_STORE).getAll(),
+    );
+    await shared.transactionDone(transaction);
+    expect(subscriptions).toEqual([]);
+  });
+
   it("reads and applies lightweight sync projections without replacing chapter caches", async () => {
     await compat.importLibraryDump({
       format: "comic-scroller-db-dump",
@@ -918,20 +1099,22 @@ describe("library integration", () => {
       },
     });
 
-    const projection = await syncPersistence.readLibrarySyncProjection();
-    expect(projection.subscriptionCheckedAtByKey).toEqual({
+    const local = await syncPersistence.readLibrarySyncState();
+    expect(local.subscriptionCheckedAtByKey).toEqual({
       "dm5:m123": 111,
     });
-    expect(projection.data.series[0].chapters.map((row) => row.chapterID)).toEqual([
+    expect(
+      Object.keys(local.state.seriesByKey["dm5:m123"].chapterSummaries),
+    ).toEqual([
       "m3",
       "m1",
       "m2",
     ]);
-    expect(projection.data.series[0].chapters).not.toEqual(
-      expect.arrayContaining([expect.objectContaining({ chapterID: "m0" })]),
-    );
+    expect(
+      local.state.seriesByKey["dm5:m123"].chapterSummaries,
+    ).not.toHaveProperty("m0");
 
-    const mergedSnapshot = shared.compactDumpRowsToSnapshot({
+    const mergedState = syncModel.syncWireRowsToState({
       series: [
         {
           site: "dm5",
@@ -971,9 +1154,9 @@ describe("library integration", () => {
       updates: [{ seriesKey: "dm5:m123", chapterID: "m4" }],
     });
 
-    await syncPersistence.applyLibrarySyncSnapshot(
-      mergedSnapshot,
-      projection.subscriptionCheckedAtByKey,
+    await syncPersistence.applyLibrarySyncState(
+      mergedState,
+      local.subscriptionCheckedAtByKey,
     );
 
     const localState = await queries.getReaderSeriesState("dm5:m123");
@@ -1045,6 +1228,33 @@ describe("library integration", () => {
     expect(readerState.series?.title).toBe("Legacy Demo");
     expect(readerState.subscribed).toBe(true);
     expect(chromeEnv.getStorageState()).toEqual({});
+  });
+
+  it("repairs read and polling invariants when upgrading database v6 to v7", async () => {
+    await seedLibraryDbV6WithMissingInvariants();
+
+    await expect(queries.getReaderSeriesState("dm5:m123")).resolves.toMatchObject({
+      series: {
+        chapterList: ["m2", "m1"],
+        lastRead: "m1",
+        read: ["m1"],
+      },
+      subscribed: true,
+    });
+
+    const rows = await shared.readRowsFromDb();
+    expect(rows.reads).toEqual([
+      { seriesKey: "dm5:m123", chapterID: "m1" },
+    ]);
+    expect(rows.subscriptions).toEqual([
+      { seriesKey: "dm5:m123", position: 0, checkedAt: 0 },
+    ]);
+    expect(rows.history).toEqual([
+      { seriesKey: "dm5:m123", position: 0 },
+    ]);
+    expect(rows.updates).toEqual([
+      { seriesKey: "dm5:m123", chapterID: "m2", position: 0 },
+    ]);
   });
 
   it("upgrades the IndexedDB schema by restoring active ordering indexes and scrubbing obsolete row fields", async () => {

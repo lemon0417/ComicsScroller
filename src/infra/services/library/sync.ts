@@ -1,30 +1,20 @@
-import type {
-  LibrarySyncStatus,
-  LibraryUpdateRecord,
-  SeriesRecord,
-} from "@domain/library";
+import type { LibrarySyncStatus } from "@domain/library";
 import {
   createEmptyLibrarySyncStatus,
 } from "@domain/library";
 
 import type {
-  LibraryDumpRowsV2,
-  LibrarySnapshotV2,
-} from "./schema";
+  LibrarySyncStateV1,
+  LibrarySyncWireRowsV1,
+} from "./syncModel";
 import {
-  buildSeriesKey,
-  createEmptyLibrarySnapshot,
-  getExtensionVersion,
-  HISTORY_LIMIT,
-  normalizeSeriesRecord,
-  uniqueStrings,
-} from "./schema";
+  mergeLibrarySyncStates,
+  syncStateToWireRows,
+  syncWireRowsToState,
+} from "./syncModel";
 import {
-  compactDumpRowsToSnapshot,
-} from "./shared";
-import {
-  applyLibrarySyncSnapshot,
-  readLibrarySyncProjection,
+  applyLibrarySyncState,
+  readLibrarySyncState,
 } from "./syncPersistence";
 
 export const LIBRARY_SYNC_STATE_KEY = "librarySyncState";
@@ -59,16 +49,13 @@ type LibrarySyncPayload = {
   formatVersion: typeof LIBRARY_SYNC_PAYLOAD_FORMAT_VERSION;
   updatedAt: number;
   deviceId: string;
-  data: LibraryDumpRowsV2;
+  data: LibrarySyncWireRowsV1;
 };
 
 type RemoteLibrarySyncPayload = {
   manifest: LibrarySyncManifest;
-  payload: LibrarySyncPayload;
-  snapshot: LibrarySnapshotV2;
+  state: LibrarySyncStateV1;
 };
-
-type MergePreference = "local" | "remote";
 
 function toRecord(input: unknown): Record<string, unknown> {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
@@ -315,176 +302,12 @@ async function readRemotePayload(): Promise<RemoteLibrarySyncPayload | null> {
 
   return {
     manifest,
-    payload: parsed,
-    snapshot: compactDumpRowsToSnapshot(parsed.data),
+    state: syncWireRowsToState(parsed.data),
   };
 }
 
-function pickSeriesScalar(
-  local: SeriesRecord,
-  remote: SeriesRecord,
-  key: keyof Pick<SeriesRecord, "title" | "cover" | "url" | "lastRead">,
-  preference: MergePreference,
-) {
-  const primary = preference === "remote" ? remote : local;
-  const secondary = preference === "remote" ? local : remote;
-  return primary[key] || secondary[key] || "";
-}
-
-function mergeSeriesRecord(
-  local: SeriesRecord | undefined,
-  remote: SeriesRecord | undefined,
-  preference: MergePreference,
-) {
-  const fallback = local || remote;
-  if (!fallback) {
-    return null;
-  }
-
-  const localRecord = local
-    ? normalizeSeriesRecord(local.site, local.comicsID, local)
-    : normalizeSeriesRecord(fallback.site, fallback.comicsID, {});
-  const remoteRecord = remote
-    ? normalizeSeriesRecord(remote.site, remote.comicsID, remote)
-    : normalizeSeriesRecord(fallback.site, fallback.comicsID, {});
-  const site = localRecord.site || remoteRecord.site;
-  const comicsID = localRecord.comicsID || remoteRecord.comicsID;
-  const primary = preference === "remote" ? remoteRecord : localRecord;
-  const secondary = preference === "remote" ? localRecord : remoteRecord;
-
-  return normalizeSeriesRecord(site, comicsID, {
-    title: pickSeriesScalar(localRecord, remoteRecord, "title", preference),
-    cover: pickSeriesScalar(localRecord, remoteRecord, "cover", preference),
-    url: pickSeriesScalar(localRecord, remoteRecord, "url", preference),
-    lastRead: pickSeriesScalar(localRecord, remoteRecord, "lastRead", preference),
-    chapterList: uniqueStrings([
-      ...(primary.chapterList || []),
-      ...(secondary.chapterList || []),
-    ]),
-    chapters: {
-      ...(secondary.chapters || {}),
-      ...(primary.chapters || {}),
-    },
-    read: uniqueStrings([
-      ...(secondary.read || []),
-      ...(primary.read || []),
-    ]),
-  });
-}
-
-function mergeUpdates(
-  primary: LibraryUpdateRecord[],
-  secondary: LibraryUpdateRecord[],
-) {
-  const seen = new Set<string>();
-  const result: LibraryUpdateRecord[] = [];
-  for (const item of [...primary, ...secondary]) {
-    const seriesKey = String(item?.seriesKey || "");
-    const chapterID = String(item?.chapterID || "");
-    const key = `${seriesKey}:${chapterID}`;
-    if (!seriesKey || !chapterID || seen.has(key)) {
-      continue;
-    }
-    seen.add(key);
-    result.push({ seriesKey, chapterID });
-  }
-  return result;
-}
-
-export function mergeLibrarySyncSnapshots(
-  local: LibrarySnapshotV2,
-  remote: LibrarySnapshotV2,
-  preference: MergePreference = "local",
-): LibrarySnapshotV2 {
-  const result = createEmptyLibrarySnapshot(
-    local.version || remote.version || getExtensionVersion(),
-  );
-  const primary = preference === "remote" ? remote : local;
-  const secondary = preference === "remote" ? local : remote;
-  const seriesKeys = uniqueStrings([
-    ...Object.keys(primary.seriesByKey || {}),
-    ...Object.keys(secondary.seriesByKey || {}),
-  ]);
-
-  for (const seriesKey of seriesKeys) {
-    const merged = mergeSeriesRecord(
-      local.seriesByKey[seriesKey],
-      remote.seriesByKey[seriesKey],
-      preference,
-    );
-    if (merged) {
-      result.seriesByKey[seriesKey] = merged;
-    }
-  }
-
-  result.subscriptions = uniqueStrings([
-    ...(primary.subscriptions || []),
-    ...(secondary.subscriptions || []),
-  ]).filter((seriesKey) => !!result.seriesByKey[seriesKey]);
-  result.history = uniqueStrings([
-    ...(primary.history || []),
-    ...(secondary.history || []),
-  ], HISTORY_LIMIT).filter((seriesKey) => !!result.seriesByKey[seriesKey]);
-  result.updates = mergeUpdates(primary.updates || [], secondary.updates || [])
-    .filter((item) => !!result.seriesByKey[item.seriesKey]);
-
-  return result;
-}
-
-function toSyncRows(snapshot: LibrarySnapshotV2): LibraryDumpRowsV2 {
-  const updatesBySeriesKey = (snapshot.updates || []).reduce<
-    Record<string, string[]>
-  >((acc, update) => {
-    if (!update.seriesKey || !update.chapterID) {
-      return acc;
-    }
-    acc[update.seriesKey] = uniqueStrings([
-      ...(acc[update.seriesKey] || []),
-      update.chapterID,
-    ]);
-    return acc;
-  }, {});
-
-  return {
-    series: Object.values(snapshot.seriesByKey || {}).map((record) => {
-      const normalized = normalizeSeriesRecord(record.site, record.comicsID, record);
-      const seriesKey = buildSeriesKey(normalized.site, normalized.comicsID);
-      const chapterIDs = uniqueStrings([
-        normalized.chapterList[0],
-        normalized.lastRead,
-        ...(normalized.read || []),
-        ...(updatesBySeriesKey[seriesKey] || []),
-      ]);
-
-      return {
-        site: normalized.site,
-        comicsID: normalized.comicsID,
-        title: normalized.title,
-        cover: normalized.cover,
-        url: normalized.url,
-        lastRead: normalized.lastRead,
-        chapters: chapterIDs
-          .map((chapterID) => ({
-            chapterID,
-            title: normalized.chapters[chapterID]?.title || "",
-            href: normalized.chapters[chapterID]?.href || "",
-          }))
-          .filter((chapter) => !!chapter.chapterID),
-        ...(normalized.read.length > 0
-          ? { read: uniqueStrings(normalized.read) }
-          : {}),
-      };
-    }),
-    subscriptions: uniqueStrings(snapshot.subscriptions).map((seriesKey) => ({
-      seriesKey,
-    })),
-    history: uniqueStrings(snapshot.history, HISTORY_LIMIT),
-    updates: mergeUpdates(snapshot.updates || [], []),
-  };
-}
-
-async function writeRemoteSnapshot(
-  snapshot: LibrarySnapshotV2,
+async function writeRemoteState(
+  libraryState: LibrarySyncStateV1,
   state: StoredLibrarySyncState,
 ) {
   const now = Date.now();
@@ -494,7 +317,7 @@ async function writeRemoteSnapshot(
     formatVersion: LIBRARY_SYNC_PAYLOAD_FORMAT_VERSION,
     updatedAt: now,
     deviceId,
-    data: toSyncRows(snapshot),
+    data: syncStateToWireRows(libraryState),
   };
   const payloadText = JSON.stringify(payload);
   const payloadBytes = getUtf8ByteLength(payloadText);
@@ -588,29 +411,28 @@ export async function syncLibraryNow() {
   }
 
   try {
-    const localProjection = await readLibrarySyncProjection();
-    const localSnapshot = compactDumpRowsToSnapshot(localProjection.data);
+    const local = await readLibrarySyncState();
     const remotePayload = await readRemotePayload();
     const remoteIsNewer = Boolean(
       remotePayload?.manifest.updatedAt &&
       remotePayload.manifest.updatedAt > (state.lastRemoteUpdatedAt || 0),
     );
-    const mergedSnapshot = remotePayload
-      ? mergeLibrarySyncSnapshots(
-          localSnapshot,
-          remotePayload.snapshot,
+    const mergedState = remotePayload
+      ? mergeLibrarySyncStates(
+          local.state,
+          remotePayload.state,
           remoteIsNewer ? "remote" : "local",
         )
-      : localSnapshot;
+      : local.state;
 
     if (remotePayload) {
-      await applyLibrarySyncSnapshot(
-        mergedSnapshot,
-        localProjection.subscriptionCheckedAtByKey,
+      await applyLibrarySyncState(
+        mergedState,
+        local.subscriptionCheckedAtByKey,
       );
     }
 
-    return writeRemoteSnapshot(mergedSnapshot, {
+    return writeRemoteState(mergedState, {
       ...state,
       lastRemoteUpdatedAt: remotePayload?.manifest.updatedAt || state.lastRemoteUpdatedAt,
     });
@@ -627,8 +449,8 @@ export async function pushLibrarySyncIfEnabled() {
   }
 
   try {
-    const projection = await readLibrarySyncProjection();
-    return writeRemoteSnapshot(compactDumpRowsToSnapshot(projection.data), {
+    const local = await readLibrarySyncState();
+    return writeRemoteState(local.state, {
       ...state,
       deviceId: state.deviceId || createDeviceId(),
     });

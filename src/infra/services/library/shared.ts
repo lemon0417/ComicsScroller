@@ -21,6 +21,7 @@ import type {
   LibraryDumpRowsV1,
   LibraryDumpRowsV2,
   LibraryDumpSeriesRow,
+  LibraryDumpSubscriptionRow,
   LibraryDumpV1,
   LibraryDumpV2,
   LibrarySignal,
@@ -251,7 +252,7 @@ export function rowsToSnapshot(input: {
   series: Array<SeriesRow | LibraryDumpSeriesRow>;
   chapters: ChapterRow[];
   reads?: ReadRow[];
-  subscriptions: SubscriptionRow[];
+  subscriptions: LibraryDumpSubscriptionRow[];
   history: HistoryRow[];
   updates: UpdateRow[];
 }) {
@@ -270,7 +271,10 @@ export function rowsToSnapshot(input: {
       chapterList: [],
       chapters: {},
       lastRead: seriesRow.lastRead || "",
-      read: uniqueStrings(readsBySeriesKey[key] || seriesRow.read),
+      read: uniqueStrings([
+        ...uniqueStrings(readsBySeriesKey[key] || seriesRow.read),
+        seriesRow.lastRead || "",
+      ]),
     };
   }
 

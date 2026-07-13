@@ -139,12 +139,15 @@ export function composeSeriesRecord(
 function resolveSeriesRowSummary(
   record: SeriesRecord,
   input: {
+    latestChapterID?: string;
     previousRow?: SeriesRow | null;
     readChapterRow?: ChapterRow | null;
   } = {},
 ) {
   const latestChapterID =
-    record.chapterList[0] || input.previousRow?.latestChapterID || "";
+    typeof input.latestChapterID === "string"
+      ? input.latestChapterID
+      : record.chapterList[0] || input.previousRow?.latestChapterID || "";
   const latestChapter =
     (latestChapterID ? record.chapters[latestChapterID] : null) || null;
   const latestChapterTitle =
@@ -188,6 +191,7 @@ export function createSeriesRow(
   seriesKey: string,
   record: SeriesRecord,
   input: {
+    latestChapterID?: string;
     previousRow?: SeriesRow | null;
     readChapterRow?: ChapterRow | null;
   } = {},
@@ -254,7 +258,7 @@ export function createReadRows(
   seriesKey: string,
   record: SeriesRecord,
 ): ReadRow[] {
-  return uniqueStrings(record.read)
+  return uniqueStrings([...record.read, record.lastRead])
     .filter(Boolean)
     .map((chapterID) => ({
       seriesKey,

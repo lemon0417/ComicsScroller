@@ -12,9 +12,6 @@ import {
 import type {
   ChapterRow,
   HistoryRow,
-  LibraryDumpRowsV2,
-  LibraryDumpSeriesV2,
-  LibrarySnapshotV2,
   ReadRow,
   SeriesRow,
   SubscriptionRow,
@@ -34,9 +31,15 @@ import {
   emitLibrarySignal,
   ensureLibraryReady,
 } from "./shared";
+import type {
+  LibrarySyncChapterSummary,
+  LibrarySyncSeriesStateV1,
+  LibrarySyncStateV1,
+} from "./syncModel";
+import { createEmptyLibrarySyncState } from "./syncModel";
 
-export type LibrarySyncProjection = {
-  data: LibraryDumpRowsV2;
+export type LocalLibrarySyncState = {
+  state: LibrarySyncStateV1;
   subscriptionCheckedAtByKey: Record<string, number>;
 };
 
@@ -62,22 +65,25 @@ function createProjectedSeries(
   chapterIDs: string[],
   chaptersByKey: Record<string, ChapterRow>,
   readChapterIDs: string[],
-): LibraryDumpSeriesV2 {
+): LibrarySyncSeriesStateV1 {
   return {
     site: row.site,
     comicsID: row.comicsID,
     title: row.title,
     cover: row.cover,
     url: row.url,
-    lastRead: row.lastRead,
-    chapters: chapterIDs.map((chapterID) => {
+    latestChapterID: row.latestChapterID,
+    lastReadChapterID: row.lastRead,
+    readChapterIDs: uniqueStrings([...readChapterIDs, row.lastRead]),
+    chapterSummaries: chapterIDs.reduce<
+      Record<string, LibrarySyncChapterSummary>
+    >((acc, chapterID) => {
       const chapter = chaptersByKey[
         buildChapterLookupKey(row.seriesKey, chapterID)
       ];
       const isLatest = chapterID === row.latestChapterID;
       const isLastRead = chapterID === row.lastRead;
-      return {
-        chapterID,
+      acc[chapterID] = {
         title:
           chapter?.title ||
           (isLatest ? row.latestChapterTitle : "") ||
@@ -87,12 +93,12 @@ function createProjectedSeries(
           (isLatest ? row.latestChapterHref : "") ||
           (isLastRead ? row.lastReadHref : ""),
       };
-    }),
-    ...(readChapterIDs.length > 0 ? { read: readChapterIDs } : {}),
+      return acc;
+    }, {}),
   };
 }
 
-export async function readLibrarySyncProjection(): Promise<LibrarySyncProjection> {
+export async function readLibrarySyncState(): Promise<LocalLibrarySyncState> {
   await ensureLibraryReady();
   const db = await openLibraryDb();
   const rowsTransaction = db.transaction(
@@ -155,31 +161,32 @@ export async function readLibrarySyncProjection(): Promise<LibrarySyncProjection
     await chaptersDone;
   }
 
-  const knownSeriesKeys = new Set(series.map((row) => row.seriesKey));
+  const state = createEmptyLibrarySyncState();
+  for (const row of series) {
+    state.seriesByKey[row.seriesKey] = createProjectedSeries(
+      row,
+      chapterIDsBySeriesKey[row.seriesKey] || [],
+      chaptersByKey,
+      readsBySeriesKey[row.seriesKey] || [],
+    );
+  }
+  const knownSeriesKeys = new Set(Object.keys(state.seriesByKey));
+  state.subscriptions = subscriptions
+    .filter((row) => knownSeriesKeys.has(row.seriesKey))
+    .map((row) => row.seriesKey);
+  state.history = history
+    .map((row) => row.seriesKey)
+    .filter((seriesKey) => knownSeriesKeys.has(seriesKey))
+    .slice(0, HISTORY_LIMIT);
+  state.updates = updates
+    .filter((row) => knownSeriesKeys.has(row.seriesKey))
+    .map((row) => ({
+      seriesKey: row.seriesKey,
+      chapterID: row.chapterID,
+    }));
+
   return {
-    data: {
-      series: series.map((row) =>
-        createProjectedSeries(
-          row,
-          chapterIDsBySeriesKey[row.seriesKey] || [],
-          chaptersByKey,
-          readsBySeriesKey[row.seriesKey] || [],
-        ),
-      ),
-      subscriptions: subscriptions
-        .filter((row) => knownSeriesKeys.has(row.seriesKey))
-        .map((row) => ({ seriesKey: row.seriesKey })),
-      history: history
-        .map((row) => row.seriesKey)
-        .filter((seriesKey) => knownSeriesKeys.has(seriesKey))
-        .slice(0, HISTORY_LIMIT),
-      updates: updates
-        .filter((row) => knownSeriesKeys.has(row.seriesKey))
-        .map((row) => ({
-          seriesKey: row.seriesKey,
-          chapterID: row.chapterID,
-        })),
-    },
+    state,
     subscriptionCheckedAtByKey: subscriptions.reduce<Record<string, number>>(
       (acc, row) => {
         acc[row.seriesKey] = Number(row.checkedAt || 0);
@@ -194,7 +201,7 @@ async function upsertProjectedChapters(
   chaptersStore: IDBObjectStore,
   seriesKey: string,
   chapterList: string[],
-  chapters: LibrarySnapshotV2["seriesByKey"][string]["chapters"],
+  chapterSummaries: Record<string, LibrarySyncChapterSummary>,
 ) {
   const existingRows = await requestToPromise<ChapterRow[]>(
     chaptersStore.index("seriesKey").getAll(seriesKey),
@@ -213,7 +220,7 @@ async function upsertProjectedChapters(
 
   for (let index = 0; index < chapterList.length; index += 1) {
     const chapterID = chapterList[index];
-    const chapter = chapters[chapterID];
+    const chapter = chapterSummaries[chapterID];
     const existing = existingByChapterID.get(chapterID);
     const orderIndex = existing
       ? existing.orderIndex
@@ -232,8 +239,8 @@ async function upsertProjectedChapters(
   }
 }
 
-export async function applyLibrarySyncSnapshot(
-  snapshot: LibrarySnapshotV2,
+export async function applyLibrarySyncState(
+  state: LibrarySyncStateV1,
   subscriptionCheckedAtByKey: Record<string, number>,
 ) {
   await ensureLibraryReady();
@@ -250,38 +257,69 @@ export async function applyLibrarySyncSnapshot(
   const historyStore = transaction.objectStore(HISTORY_STORE);
   const updatesStore = transaction.objectStore(UPDATES_STORE);
 
-  for (const [seriesKey, record] of Object.entries(snapshot.seriesByKey)) {
+  for (const [seriesKey, syncSeries] of Object.entries(state.seriesByKey)) {
+    const chapterList = uniqueStrings([
+      syncSeries.latestChapterID,
+      syncSeries.lastReadChapterID,
+      ...syncSeries.readChapterIDs,
+      ...Object.keys(syncSeries.chapterSummaries),
+    ]);
+    const record = {
+      site: syncSeries.site,
+      comicsID: syncSeries.comicsID,
+      title: syncSeries.title,
+      cover: syncSeries.cover,
+      url: syncSeries.url,
+      chapterList,
+      chapters: syncSeries.chapterSummaries,
+      lastRead: syncSeries.lastReadChapterID,
+      read: uniqueStrings([
+        ...syncSeries.readChapterIDs,
+        syncSeries.lastReadChapterID,
+      ]),
+    };
     const previousRow = await requestToPromise<SeriesRow | undefined>(
       seriesStore.get(seriesKey),
     );
     await requestToPromise(
-      seriesStore.put(createSeriesRow(seriesKey, record, { previousRow })),
+      seriesStore.put(
+        createSeriesRow(seriesKey, record, {
+          latestChapterID: syncSeries.latestChapterID,
+          previousRow,
+        }),
+      ),
     );
     await upsertProjectedChapters(
       chaptersStore,
       seriesKey,
-      record.chapterList,
-      record.chapters,
+      chapterList,
+      syncSeries.chapterSummaries,
     );
     for (const chapterID of uniqueStrings(record.read)) {
       await requestToPromise(readsStore.put({ seriesKey, chapterID }));
     }
   }
 
+  const knownSeriesKeys = new Set(Object.keys(state.seriesByKey));
   await writeOrderedSeriesKeysInTransaction(
     subscriptionsStore,
-    snapshot.subscriptions,
+    state.subscriptions.filter((seriesKey) => knownSeriesKeys.has(seriesKey)),
     (seriesKey) => ({
       checkedAt: Number(subscriptionCheckedAtByKey[seriesKey] || 0),
     }),
   );
   await writeOrderedSeriesKeysInTransaction(
     historyStore,
-    snapshot.history.slice(0, HISTORY_LIMIT),
+    state.history
+      .filter((seriesKey) => knownSeriesKeys.has(seriesKey))
+      .slice(0, HISTORY_LIMIT),
   );
   await requestToPromise(updatesStore.clear());
-  for (let position = 0; position < snapshot.updates.length; position += 1) {
-    const update = snapshot.updates[position];
+  const updates = state.updates.filter((update) =>
+    knownSeriesKeys.has(update.seriesKey),
+  );
+  for (let position = 0; position < updates.length; position += 1) {
+    const update = updates[position];
     await requestToPromise(
       updatesStore.put({
         seriesKey: update.seriesKey,
@@ -295,6 +333,6 @@ export async function applyLibrarySyncSnapshot(
   await emitLibrarySignal(
     "library-sync",
     ["series", "subscriptions", "history", "updates"],
-    Object.keys(snapshot.seriesByKey),
+    Object.keys(state.seriesByKey),
   );
 }

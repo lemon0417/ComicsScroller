@@ -395,7 +395,7 @@ export function createFetchChapterEpic(config: ReaderFlowConfig): AppEpic {
                       payload.chapterID,
                     ),
                   ).pipe(
-                    mergeMap(({ series, subscribed, updatesCount }) => {
+                    mergeMap(({ readChapterIDs, subscribed, updatesCount }) => {
                       if (getReaderGeneration(state$) !== readerGeneration) {
                         return EMPTY;
                       }
@@ -407,7 +407,7 @@ export function createFetchChapterEpic(config: ReaderFlowConfig): AppEpic {
                         baseURL: config.baseURL,
                         payload,
                         meta,
-                        seriesRead: series?.read || [],
+                        seriesRead: readChapterIDs,
                         subscribed,
                       });
                     }),
@@ -431,14 +431,14 @@ export function createUpdateReadEpic(site: SiteKey): AppEpic {
         const readerGeneration = getReaderGeneration(state$);
 
         return from(applyReadProgress(site, comicsID, chapterList[index])).pipe(
-          mergeMap(({ series, updatesCount }) => {
+          mergeMap(({ readChapterIDs, updatesCount }) => {
             if (getReaderGeneration(state$) !== readerGeneration) {
               return EMPTY;
             }
             chrome.action.setBadgeText({
               text: `${updatesCount === 0 ? "" : updatesCount}`,
             });
-            return [updateReadChapters(series?.read || [])];
+            return [updateReadChapters(readChapterIDs)];
           }),
           catchError(() => EMPTY),
         );
