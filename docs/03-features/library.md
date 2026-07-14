@@ -113,6 +113,8 @@
 - `chapters` 是 cache，不是每部作品都必須永久保存
 - background 以 `series.latestChapterID` 作為更新 checkpoint，不把 sync 的部分章節摘要誤認為完整章節基線
 - checkpoint 不存在或已不在站點列表時，下一次背景 refresh 只建立完整 baseline，不產生舊章節更新提醒
+- background 每次成功輪詢都以完整章節快照刷新 `chapters` 與 latest summary；title、cover、作品 URL、lastRead 與 reads 維持原值
+- 背景候選由 subscriptions 與 series 在同一個 readonly transaction 組成，避免逐訂閱的 series point query
 - `reads` 是 runtime query 用的結構化資料，不是 dump-only 欄位
 - `lastRead` 是查詢摘要 checkpoint，同時必須存在於 `reads`；匯入、sync apply 與 DB upgrade 都會修復此不變量
 - `subscriptions.seriesKey` 必須指向既有 `series`；subscribe mutation 會在同一 transaction 驗證，unsubscribe 可清除歷史 dangling row

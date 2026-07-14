@@ -75,9 +75,11 @@ UI → Actions → Epics → Services → IndexedDB/Network → Actions
   - IndexedDB 仍是唯一 runtime source of truth
 - repository 目前分成兩層 API：
   - config / import-export：`resetLibrary`、`exportLibraryDump`、`importLibraryDump`、`setLibraryVersion`
-  - query / mutation：`getPopupFeedSnapshot`、`getSeriesSnapshot`、`listSubscriptionKeys`、`applyReaderSeriesState`、`applyReadProgress`、`setSeriesSubscription*`、`dismissSeriesUpdate`、`removeSeriesFromHistory`、`removeSeriesCascade`
+  - query / mutation：`getPopupFeedSnapshot`、`getSeriesSnapshot`、`listBackgroundRefreshCandidates`、`applyReaderSeriesState`、`applyReadProgress`、`applyBackgroundSeriesRefresh`、`setSeriesSubscription*`、`dismissSeriesUpdate`、`removeSeriesFromHistory`、`removeSeriesCascade`
   - sync：`getLibrarySyncStatus`、`setLibrarySyncEnabled`、`syncLibraryNow`、`pushLibrarySyncIfEnabled`
 - `getPopupFeedSnapshot()` 直接由 IndexedDB rows 組出 popup feed model，不再先組整包 `LibrarySnapshotV2`
+- 相同 `updateLimit` 的並行 popup/manage feed query 共用 in-flight Promise，完成或失敗後立即清除；不保留 resolved TTL cache
+- popup/manage feed 以一次 bulk read 載入 referenced series，再於單次操作內篩選；updates 需要的章節摘要仍使用受 limit 約束的 point reads
 - popup / manage 的刪除語意分三層：
   - `history -> 移除`：只刪 `history` row，不刪作品、章節、追蹤或更新
   - `subscribe -> 棄坑`：預設只取消追蹤並清除該作品的更新提醒
@@ -109,7 +111,7 @@ UI → Actions → Epics → Services → IndexedDB/Network → Actions
 - Reducers：`src/domain/reducers/`
 - Epics：`src/epics/`、`src/epics/sites/`、`src/epics/popup/`
 - Sites：`src/sites/`（`registry.ts`、`*/adapter.ts`、`*/meta.ts`、站點純 parser/resolver）
-- Site adapters：`src/sites/*/adapter.ts` 只描述站點 key、baseURL 與 metadata fetcher，不持有 reader epics
+- Site adapters：`src/sites/*/adapter.ts` 描述站點 key、baseURL、metadata fetcher 與可選的 chapter snapshot fetcher，不持有 reader epics
 - Site reader orchestration：`src/epics/sites/readerFlow.ts` 提供共用 `fetchChapter / fetchImgList / updateRead` 模板，各站點 epic 只保留章節圖片抓取與站點特例 hook
 - Site reader epic registry：`src/epics/sites/registry.ts` 依 reader site 選擇對應 epics，避免 `src/sites/*` 反向依賴 `src/epics/*`
 - Services：`src/infra/services/`（`storage.ts`、`background.ts`、`extensionRelease.ts`、`library/*.ts`）
@@ -143,13 +145,17 @@ UI → Actions → Epics → Services → IndexedDB/Network → Actions
   - `src/background.ts` 只保留 MV3 listener wiring
   - service worker 每次喚醒只補建不存在的 alarm，不得重設既有 refresh / release 排程
   - alarm 與 dev ping 若同時觸發 background refresh，必須共用同一個 in-flight summary；結束後才允許下一輪執行
+  - 每輪先以單一 transaction 批次讀取最舊的 refresh candidates 與 series summary，不得由 worker 逐本回查 series
   - listener wiring 必須收斂非同步 rejection；需要保持 message channel 的 handler 在成功與失敗時都必須回覆
   - 更新檢查、安裝處理、通知點擊、ping 回應、reader redirect 解析集中在 `src/infra/services/background.ts`
   - 訂閱更新檢查會依 `subscriptions.checkedAt` 由舊到新取批次輪詢
   - 更新比對以 `series.latestChapterID` 為 checkpoint，只將站點章節列表中位於 checkpoint 前方的章節視為新章
   - checkpoint 缺失或找不到時只刷新 baseline，不把既有舊章節加入 updates
-  - metadata 必須提供非空、不重複且可解析 href 的章節列表；無效 payload 計入 errors 但仍推進 `checkedAt`，避免壞來源阻塞後續訂閱
+  - 每次成功輪詢都刷新完整 `chapterList + chapters`；checkpoint 後方的 backfill 可更新 cache，但不加入 updates
+  - chapter snapshot 必須提供非空、不重複且可解析 href 的章節列表；無效 payload 計入 errors 但仍推進 `checkedAt`，避免壞來源阻塞後續訂閱
   - 每輪 background refresh 使用固定上限並發與單筆 metadata fetch timeout；timeout unsubscribe 必須同步 abort 站點 HTTP request，避免慢站拖住 service worker 或殘留無人等待的網路工作
+  - background mutation 只更新章節 cache、latest chapter summary 與 updates；既有 title、cover、作品 URL 與閱讀狀態不得更動
+  - 同一輪成功 mutation 的 signal scopes 與 series keys 會合併，結束時最多送出一次 invalidation；部分失敗仍 flush 已落盤的變更
   - background refresh mutation 只回傳 `updatesCount`，不回傳可能只 hydrate 部分欄位的 `SeriesRecord`
 - Repository 測試基礎：
   - 真實 IndexedDB integration tests 使用 `fake-indexeddb`
@@ -166,7 +172,7 @@ UI → Actions → Epics → Services → IndexedDB/Network → Actions
 - Reducer 必須純函式
 - Side effects 一律放 epics 或 services
 - `src/domain/**` 不得依賴 `src/infra/**`；跨 layer 共用型別或 key 規則應先放進 domain-owned contract
-- 站點 metadata 差異由 `src/sites/*/adapter.ts` 吃掉；`fetchMeta` 對外回傳 `Observable<SiteMeta>`，background 不應保留站點特例分支
+- 站點資料來源差異由 `src/sites/*/adapter.ts` 與 registry 吃掉；前景使用 `fetchMeta`，背景統一取得 `Observable<SiteChapterSnapshot>`，不保留 RSS／HTML 等站點特例分支
 - 站點純 parser / resolver 優先放在 `src/sites/*`，`src/epics/sites/*` 只負責 ajax/action/repository orchestration
 - `src/sites/**` 不得依賴 `src/epics/**`；需要依站點選擇 reader epics 時，從 epic layer 的 registry 組合
 - 若 orchestration 在多個站點重複，優先抽到 `src/epics/sites/readerFlow.ts`，不要在每個站點 epic 複製 `FETCH_CHAPTER / FETCH_IMG_LIST / UPDATE_READ` 樣板

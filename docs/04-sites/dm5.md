@@ -31,16 +31,16 @@ RSS XML 使用 `fast-xml-parser` 轉成 object tree 後，從 `<channel>` / `<it
 - `chapterList`：由 `<item><link>` 的 `/m\d+/` 萃取 chapter ID
 - `chapters[chapterID] = { title, href }`
 
-RSS XML 沒有 cover，因此會再抓一次作品頁 HTML，只解析：
+RSS XML 沒有 cover；前景 metadata 流程需要封面時，會再抓一次作品頁 HTML，只解析：
 - `.banner_detail .cover > img` 的 `src`
 
-封面屬於次要資訊，只有 repository 內尚未有既有 `cover` 時才會補抓作品頁 HTML；背景更新檢查若已有封面，會只抓 RSS，不再重抓 HTML cover。
+封面屬於次要資訊，只有 reader／前景 metadata 流程需要補齊封面時才抓作品頁 HTML。
 
 reader 流程若需要補抓 cover，會採兩段式 hydration：
 - 先發出只有 `title + chapterList + chapters` 的最小 metadata，讓 header / 章節列表 / 訂閱狀態先完成初始化
 - cover 抓到後再補一筆帶 `cover` 的 metadata
 
-背景更新檢查不走兩段式；若需要 cover，會等待完整 metadata 後再比對更新。
+背景更新固定使用 chapter snapshot：RSS 成功時只送出一個 RSS request，不抓封面或等待 cover hydration。RSS 失敗、沒有可用章節，或作品 URL 不是 `manhua-*` 時仍 fallback 至既有作品 HTML parser，但只把 `chapterList + chapters` 交給背景 repository。
 
 若 RSS request 失敗，或 RSS 雖成功但沒有任何可用章節連結，會 fallback 回舊 HTML parser 流程，避免 RSS 成為單點故障。
 

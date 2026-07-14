@@ -2,10 +2,11 @@
 
 Codex 處理站點 / parser / manifest / DNR / redirect 類任務時，優先使用 `$comic-scroller-site-adapter`。本文件是人類與 skill 共同引用的 canonical checklist。
 
-新增或調整站點時，先確認變更屬於 metadata、reader 圖片解析、redirect、manifest 權限或 DNR header 規則。
+新增或調整站點時，先確認變更屬於 metadata、背景章節快照、reader 圖片解析、redirect、manifest 權限或 DNR header 規則。
 
 ## 必查位置
 - Metadata adapter：`src/sites/<site>/adapter.ts`、`src/sites/<site>/meta.ts`
+- 背景章節來源：`SiteAdapter.fetchChapters`；沒有專用來源時由 registry 將 `fetchMeta` 投影成章節快照
 - Metadata registry：`src/sites/registry.ts`
 - Reader epic：`src/epics/sites/<site>.ts`
 - Reader epic registry：`src/epics/sites/registry.ts`
@@ -18,6 +19,7 @@ Codex 處理站點 / parser / manifest / DNR / redirect 類任務時，優先使
 - `src/sites/**` 不得 import `src/epics/**`
 - 站點 parser 必須支援 MV3 background 可用的 no-DOM fallback
 - metadata fetcher 在 Observable unsubscribe 時必須中止尚未完成的 HTTP request，讓 background timeout 能釋放實際網路資源
+- background 只消費 `chapterList + chapters`；站點可使用 RSS、API 或作品 HTML，但不得藉此覆寫既有 title、cover、作品 URL 或閱讀狀態
 - 新增跨站來源時，同步評估 production/dev manifest 的 `host_permissions`
 - 需要 Referer / Cookie / header 修改時，優先用 DNR，不新增 content script 或 webRequest
 - 付費、失敗、timeout 與 retry 狀態要明確回到 reader 流程，不讓 UI 永久卡在 loading
