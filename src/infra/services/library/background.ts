@@ -7,11 +7,7 @@ export {
   markSubscriptionCheckedByKey,
 } from "./mutations";
 export {
-  getBackgroundSeriesState,
+  listBackgroundRefreshCandidates,
   getSeriesSnapshot,
   getUpdateCount,
-  listSubscriptionKeys,
 } from "./queries";
-export {
-  parseSeriesKey,
-} from "./schema";

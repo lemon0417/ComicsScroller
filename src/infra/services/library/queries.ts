@@ -4,7 +4,7 @@ import {
   transactionDone,
 } from "./db";
 import {
-  type BackgroundSeriesState,
+  type BackgroundRefreshCandidate,
   createEmptyPopupFeedSnapshot,
   type PopupFeedCategory,
   type PopupFeedEntry,
@@ -32,6 +32,7 @@ import {
   SUBSCRIPTIONS_STORE,
   type UpdateRow,
   UPDATES_STORE,
+  parseSeriesKey,
 } from "./schema";
 import {
   ensureLibraryReady,
@@ -347,30 +348,6 @@ export async function getReaderSeriesSyncState(
   };
 }
 
-export async function getBackgroundSeriesState(
-  seriesKey: string,
-): Promise<BackgroundSeriesState | null> {
-  await ensureLibraryReady();
-  const db = await openLibraryDb();
-  const transaction = db.transaction([SERIES_STORE], "readonly");
-  const done = transactionDone(transaction);
-  const seriesStore = transaction.objectStore(SERIES_STORE);
-  const row = await requestToPromise<SeriesRow | undefined>(seriesStore.get(seriesKey));
-
-  if (!row) {
-    await done;
-    return null;
-  }
-
-  await done;
-
-  return {
-    url: row.url || "",
-    cover: row.cover || "",
-    latestChapterID: row.latestChapterID || "",
-  };
-}
-
 export async function getUpdateCount() {
   await ensureLibraryReady();
   const db = await openLibraryDb();
@@ -393,18 +370,38 @@ export async function isSeriesSubscribedByKey(seriesKey: string) {
   return Boolean(row);
 }
 
-export async function listSubscriptionKeys(limit = Number.POSITIVE_INFINITY) {
+export async function listBackgroundRefreshCandidates(
+  limit = Number.POSITIVE_INFINITY,
+): Promise<BackgroundRefreshCandidate[]> {
   await ensureLibraryReady();
   const db = await openLibraryDb();
-  const transaction = db.transaction([SUBSCRIPTIONS_STORE], "readonly");
+  const transaction = db.transaction(
+    [SUBSCRIPTIONS_STORE, SERIES_STORE],
+    "readonly",
+  );
   const done = transactionDone(transaction);
   const subscriptionsStore = transaction.objectStore(SUBSCRIPTIONS_STORE);
-  const seriesKeys = await loadSubscriptionKeysByCheckedAtInTransaction(
-    subscriptionsStore,
-    limit,
-  );
+  const seriesStore = transaction.objectStore(SERIES_STORE);
+  const [seriesKeys, seriesRows] = await Promise.all([
+    loadSubscriptionKeysByCheckedAtInTransaction(subscriptionsStore, limit),
+    requestToPromise<SeriesRow[]>(seriesStore.getAll()),
+  ]);
   await done;
-  return seriesKeys;
+
+  const seriesByKey = new Map(
+    seriesRows.map((row) => [row.seriesKey, row] as const),
+  );
+  return seriesKeys.map((seriesKey) => {
+    const row = seriesByKey.get(seriesKey);
+    const { site, comicsID } = parseSeriesKey(seriesKey);
+    return {
+      seriesKey,
+      site,
+      comicsID,
+      url: row?.url || "",
+      latestChapterID: row?.latestChapterID || "",
+    };
+  });
 }
 
 export async function getPopupFeedSnapshot(

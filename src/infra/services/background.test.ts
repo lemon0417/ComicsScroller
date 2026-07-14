@@ -14,6 +14,21 @@ import {
 
 const UPDATE_NOTIFICATION_ID = "Comics Scroller Update";
 
+function createRefreshCandidate(
+  seriesKey: string,
+  url: string,
+  latestChapterID = "",
+) {
+  const [site, ...comicsIDParts] = seriesKey.split(":");
+  return {
+    seriesKey,
+    site: site as "dm5" | "sf" | "comicbus",
+    comicsID: comicsIDParts.join(":"),
+    url,
+    latestChapterID,
+  };
+}
+
 describe("background service", () => {
   it("preserves existing background alarm schedules", async () => {
     const createAlarm = jest.fn();
@@ -47,24 +62,26 @@ describe("background service", () => {
   });
 
   it("shares an active background update across concurrent callers", async () => {
-    let resolveSubscriptions: (seriesKeys: string[]) => void = () => undefined;
-    const subscriptionsPromise = new Promise<string[]>((resolve) => {
-      resolveSubscriptions = resolve;
+    let resolveCandidates: (
+      candidates: ReturnType<typeof createRefreshCandidate>[],
+    ) => void = () => undefined;
+    const candidatesPromise = new Promise<
+      ReturnType<typeof createRefreshCandidate>[]
+    >((resolve) => {
+      resolveCandidates = resolve;
     });
-    const listSubscriptionKeys = jest.fn(() => subscriptionsPromise);
+    const listBackgroundRefreshCandidates = jest.fn(() => candidatesPromise);
     const deps = {
       applyBackgroundSeriesRefresh: jest.fn(),
       clearNotification: jest.fn(),
       createNotification: jest.fn(),
-      getFetchChapterPage: jest.fn(),
+      getFetchChapters: jest.fn(),
       getManifestVersion: jest.fn(() => "4.0.99"),
       getRuntimeUrl: jest.fn((path: string) => `chrome-extension:///${path}`),
-      getBackgroundSeriesState: jest.fn(),
       getUpdateCount: jest.fn().mockResolvedValue(0),
-      listSubscriptionKeys,
+      listBackgroundRefreshCandidates,
       markSubscriptionCheckedByKey: jest.fn(),
       openTab: jest.fn(),
-      parseSeriesKey: jest.fn(),
       reconcileExtensionReleaseState: jest.fn(),
       refreshExtensionReleaseState: jest.fn(),
       resetLibrary: jest.fn(),
@@ -76,9 +93,9 @@ describe("background service", () => {
     const overlappingRun = runBackgroundUpdateSummary(deps);
 
     expect(overlappingRun).toBe(firstRun);
-    expect(listSubscriptionKeys).toHaveBeenCalledTimes(1);
+    expect(listBackgroundRefreshCandidates).toHaveBeenCalledTimes(1);
 
-    resolveSubscriptions([]);
+    resolveCandidates([]);
     await expect(Promise.all([firstRun, overlappingRun])).resolves.toEqual([
       {
         checked: 0,
@@ -96,7 +113,7 @@ describe("background service", () => {
   });
 
   it("allows a background update retry after the active run fails", async () => {
-    const listSubscriptionKeys = jest
+    const listBackgroundRefreshCandidates = jest
       .fn()
       .mockRejectedValueOnce(new Error("temporary failure"))
       .mockResolvedValueOnce([]);
@@ -104,15 +121,13 @@ describe("background service", () => {
       applyBackgroundSeriesRefresh: jest.fn(),
       clearNotification: jest.fn(),
       createNotification: jest.fn(),
-      getFetchChapterPage: jest.fn(),
+      getFetchChapters: jest.fn(),
       getManifestVersion: jest.fn(() => "4.0.99"),
       getRuntimeUrl: jest.fn((path: string) => `chrome-extension:///${path}`),
-      getBackgroundSeriesState: jest.fn(),
       getUpdateCount: jest.fn().mockResolvedValue(0),
-      listSubscriptionKeys,
+      listBackgroundRefreshCandidates,
       markSubscriptionCheckedByKey: jest.fn(),
       openTab: jest.fn(),
-      parseSeriesKey: jest.fn(),
       reconcileExtensionReleaseState: jest.fn(),
       refreshExtensionReleaseState: jest.fn(),
       resetLibrary: jest.fn(),
@@ -129,7 +144,7 @@ describe("background service", () => {
       errors: 0,
       diff: { before: 0, after: 0, added: 0 },
     });
-    expect(listSubscriptionKeys).toHaveBeenCalledTimes(2);
+    expect(listBackgroundRefreshCandidates).toHaveBeenCalledTimes(2);
   });
 
   it.each([
@@ -159,19 +174,19 @@ describe("background service", () => {
         applyBackgroundSeriesRefresh,
         clearNotification: jest.fn(),
         createNotification: jest.fn(),
-        getFetchChapterPage: jest.fn(() => () => of(meta as any)),
+        getFetchChapters: jest.fn(() => () => of(meta as any)),
         getManifestVersion: jest.fn(() => "4.0.99"),
         getRuntimeUrl: jest.fn((path: string) => `chrome-extension:///${path}`),
-        getBackgroundSeriesState: jest.fn().mockResolvedValue({
-          url: "https://www.dm5.com/m123/",
-          cover: "cover.jpg",
-          latestChapterID: "m0",
-        }),
         getUpdateCount: jest.fn().mockResolvedValue(0),
-        listSubscriptionKeys: jest.fn().mockResolvedValue(["dm5:m123"]),
+        listBackgroundRefreshCandidates: jest.fn().mockResolvedValue([
+          createRefreshCandidate(
+            "dm5:m123",
+            "https://www.dm5.com/m123/",
+            "m0",
+          ),
+        ]),
         markSubscriptionCheckedByKey,
         openTab: jest.fn(),
-        parseSeriesKey: jest.fn(() => ({ site: "dm5", comicsID: "m123" })),
         reconcileExtensionReleaseState: jest.fn(),
         refreshExtensionReleaseState: jest.fn(),
         resetLibrary: jest.fn(),
@@ -197,39 +212,36 @@ describe("background service", () => {
     const applyBackgroundSeriesRefresh = jest.fn().mockResolvedValue({
       updatesCount: 2,
     });
-    const fetchChapterPage = jest.fn(
-      (_url: string, options?: { includeCover?: boolean }) =>
-        of({
-          title: "Demo",
-          chapterList: ["m2", "m1"],
-          ...(options?.includeCover ? { cover: "cover.jpg" } : {}),
-          chapters: {
-            m1: { title: "Ch 1", href: "https://www.dm5.com/m123//1" },
-            m2: { title: "Ch 2", href: "https://www.dm5.com/m123//2" },
-          },
-        }),
+    const fetchChapters = jest.fn(() =>
+      of({
+        chapterList: ["m2", "m1"],
+        chapters: {
+          m1: { title: "Ch 1", href: "https://www.dm5.com/m123//1" },
+          m2: { title: "Ch 2", href: "https://www.dm5.com/m123//2" },
+        },
+      }),
     );
 
     const summary = await runBackgroundUpdateSummary({
       applyBackgroundSeriesRefresh,
       clearNotification: jest.fn(),
       createNotification: jest.fn(),
-      getFetchChapterPage: jest.fn(() => fetchChapterPage),
+      getFetchChapters: jest.fn(() => fetchChapters),
       getManifestVersion: jest.fn(() => "4.0.99"),
       getRuntimeUrl: jest.fn((path: string) => `chrome-extension:///${path}`),
-      getBackgroundSeriesState: jest.fn().mockResolvedValue({
-        url: "https://www.dm5.com/m123/",
-        cover: "persisted-cover.jpg",
-        latestChapterID: "m1",
-      }),
       getUpdateCount: jest
         .fn()
         .mockResolvedValueOnce(1)
         .mockResolvedValueOnce(2),
-      listSubscriptionKeys: jest.fn().mockResolvedValue(["dm5:m123"]),
+      listBackgroundRefreshCandidates: jest.fn().mockResolvedValue([
+        createRefreshCandidate(
+          "dm5:m123",
+          "https://www.dm5.com/m123/",
+          "m1",
+        ),
+      ]),
       markSubscriptionCheckedByKey,
       openTab: jest.fn(),
-      parseSeriesKey: jest.fn(() => ({ site: "dm5", comicsID: "m123" })),
       reconcileExtensionReleaseState: jest.fn(),
       refreshExtensionReleaseState: jest.fn(),
       resetLibrary: jest.fn(),
@@ -255,17 +267,15 @@ describe("background service", () => {
     expect(applyBackgroundSeriesRefresh).toHaveBeenCalledWith(
       "dm5",
       "m123",
-      expect.objectContaining({
-        title: "Demo",
+      {
+        chapterList: ["m2", "m1"],
+        chapters: expect.any(Object),
         url: "https://www.dm5.com/m123/",
-      }),
+      },
       ["m2"],
     );
     expect(setBadge).toHaveBeenCalledWith(2);
-    expect(fetchChapterPage).toHaveBeenCalledWith(
-      "https://www.dm5.com/m123/",
-      { includeCover: false },
-    );
+    expect(fetchChapters).toHaveBeenCalledWith("https://www.dm5.com/m123/");
     expect(markSubscriptionCheckedByKey).toHaveBeenCalledWith(
       "dm5:m123",
       12345,
@@ -276,9 +286,8 @@ describe("background service", () => {
     const applyBackgroundSeriesRefresh = jest.fn().mockResolvedValue({
       updatesCount: 0,
     });
-    const fetchChapterPage = jest.fn(() =>
+    const fetchChapters = jest.fn(() =>
       of({
-        title: "Demo",
         chapterList: ["m3", "m2", "m1"],
         chapters: {
           m1: { title: "Ch 1", href: "https://www.dm5.com/m1/" },
@@ -287,37 +296,24 @@ describe("background service", () => {
         },
       }),
     );
-    const getBackgroundSeriesState = jest
-      .fn()
-      .mockResolvedValueOnce({
-        url: "https://www.dm5.com/empty/",
-        cover: "",
-        latestChapterID: "",
-      })
-      .mockResolvedValueOnce({
-        url: "https://www.dm5.com/missing/",
-        cover: "",
-        latestChapterID: "m404",
-      });
-
     const summary = await runBackgroundUpdateSummary({
       applyBackgroundSeriesRefresh,
       clearNotification: jest.fn(),
       createNotification: jest.fn(),
-      getFetchChapterPage: jest.fn(() => fetchChapterPage),
+      getFetchChapters: jest.fn(() => fetchChapters),
       getManifestVersion: jest.fn(() => "4.0.99"),
       getRuntimeUrl: jest.fn((path: string) => `chrome-extension:///${path}`),
-      getBackgroundSeriesState,
       getUpdateCount: jest.fn().mockResolvedValue(0),
-      listSubscriptionKeys: jest
-        .fn()
-        .mockResolvedValue(["dm5:empty", "dm5:missing"]),
+      listBackgroundRefreshCandidates: jest.fn().mockResolvedValue([
+        createRefreshCandidate("dm5:empty", "https://www.dm5.com/empty/"),
+        createRefreshCandidate(
+          "dm5:missing",
+          "https://www.dm5.com/missing/",
+          "m404",
+        ),
+      ]),
       markSubscriptionCheckedByKey: jest.fn(),
       openTab: jest.fn(),
-      parseSeriesKey: jest.fn((seriesKey: string) => ({
-        site: "dm5",
-        comicsID: seriesKey.split(":")[1],
-      })),
       reconcileExtensionReleaseState: jest.fn(),
       refreshExtensionReleaseState: jest.fn(),
       resetLibrary: jest.fn(),
@@ -347,9 +343,8 @@ describe("background service", () => {
       applyBackgroundSeriesRefresh,
       clearNotification: jest.fn(),
       createNotification: jest.fn(),
-      getFetchChapterPage: jest.fn(() => () =>
+      getFetchChapters: jest.fn(() => () =>
         of({
-          title: "Demo",
           chapterList: ["m3", "m2-backfill", "m2", "m1"],
           chapters: {
             m1: { title: "Ch 1", href: "https://www.dm5.com/m1/" },
@@ -364,16 +359,16 @@ describe("background service", () => {
       ),
       getManifestVersion: jest.fn(() => "4.0.99"),
       getRuntimeUrl: jest.fn((path: string) => `chrome-extension:///${path}`),
-      getBackgroundSeriesState: jest.fn().mockResolvedValue({
-        url: "https://www.dm5.com/m123/",
-        cover: "cover.jpg",
-        latestChapterID: "m3",
-      }),
       getUpdateCount: jest.fn().mockResolvedValue(0),
-      listSubscriptionKeys: jest.fn().mockResolvedValue(["dm5:m123"]),
+      listBackgroundRefreshCandidates: jest.fn().mockResolvedValue([
+        createRefreshCandidate(
+          "dm5:m123",
+          "https://www.dm5.com/m123/",
+          "m3",
+        ),
+      ]),
       markSubscriptionCheckedByKey: jest.fn(),
       openTab: jest.fn(),
-      parseSeriesKey: jest.fn(() => ({ site: "dm5", comicsID: "m123" })),
       reconcileExtensionReleaseState: jest.fn(),
       refreshExtensionReleaseState: jest.fn(),
       resetLibrary: jest.fn(),
@@ -387,11 +382,10 @@ describe("background service", () => {
 
   it("times out a stalled subscription fetch and keeps processing the batch", async () => {
     const markSubscriptionCheckedByKey = jest.fn().mockResolvedValue(undefined);
-    const fetchChapterPage = jest.fn((url: string) =>
+    const fetchChapters = jest.fn((url: string) =>
       url.includes("m-stuck")
         ? NEVER
         : of({
-            title: "Demo",
             chapterList: ["m2", "m1"],
             chapters: {
               m1: { title: "Ch 1", href: "https://www.dm5.com/m-ok/1" },
@@ -399,18 +393,6 @@ describe("background service", () => {
             },
           }),
     );
-    const getBackgroundSeriesState = jest
-      .fn()
-      .mockResolvedValueOnce({
-        url: "https://www.dm5.com/m-stuck/",
-        cover: "",
-        latestChapterID: "",
-      })
-      .mockResolvedValueOnce({
-        url: "https://www.dm5.com/m-ok/",
-        cover: "",
-        latestChapterID: "m1",
-      });
     const applyBackgroundSeriesRefresh = jest.fn().mockResolvedValue({
       updatesCount: 1,
     });
@@ -420,23 +402,26 @@ describe("background service", () => {
         applyBackgroundSeriesRefresh,
         clearNotification: jest.fn(),
         createNotification: jest.fn(),
-        getFetchChapterPage: jest.fn(() => fetchChapterPage),
+        getFetchChapters: jest.fn(() => fetchChapters),
         getManifestVersion: jest.fn(() => "4.0.99"),
         getRuntimeUrl: jest.fn((path: string) => `chrome-extension:///${path}`),
-        getBackgroundSeriesState,
         getUpdateCount: jest
           .fn()
           .mockResolvedValueOnce(0)
           .mockResolvedValueOnce(1),
-        listSubscriptionKeys: jest
-          .fn()
-          .mockResolvedValue(["dm5:m-stuck", "dm5:m-ok"]),
+        listBackgroundRefreshCandidates: jest.fn().mockResolvedValue([
+          createRefreshCandidate(
+            "dm5:m-stuck",
+            "https://www.dm5.com/m-stuck/",
+          ),
+          createRefreshCandidate(
+            "dm5:m-ok",
+            "https://www.dm5.com/m-ok/",
+            "m1",
+          ),
+        ]),
         markSubscriptionCheckedByKey,
         openTab: jest.fn(),
-        parseSeriesKey: jest.fn((seriesKey: string) => ({
-          site: "dm5",
-          comicsID: seriesKey.split(":")[1],
-        })),
         reconcileExtensionReleaseState: jest.fn(),
         refreshExtensionReleaseState: jest.fn(),
         resetLibrary: jest.fn(),
@@ -465,7 +450,6 @@ describe("background service", () => {
       "dm5",
       "m-ok",
       expect.objectContaining({
-        title: "Demo",
         url: "https://www.dm5.com/m-ok/",
       }),
       ["m2"],
@@ -486,15 +470,13 @@ describe("background service", () => {
       applyBackgroundSeriesRefresh: jest.fn(),
       clearNotification: jest.fn(),
       createNotification,
-      getFetchChapterPage: jest.fn(),
+      getFetchChapters: jest.fn(),
       getManifestVersion: jest.fn(() => "4.0.99"),
       getRuntimeUrl: jest.fn((path: string) => `chrome-extension:///${path}`),
-      getBackgroundSeriesState: jest.fn(),
       getUpdateCount: jest.fn(),
-      listSubscriptionKeys: jest.fn(),
+      listBackgroundRefreshCandidates: jest.fn(),
       markSubscriptionCheckedByKey: jest.fn(),
       openTab: jest.fn(),
-      parseSeriesKey: jest.fn(),
       reconcileExtensionReleaseState,
       refreshExtensionReleaseState: jest.fn(),
       resetLibrary,
@@ -524,15 +506,13 @@ describe("background service", () => {
         applyBackgroundSeriesRefresh: jest.fn(),
         clearNotification: jest.fn(),
         createNotification,
-        getFetchChapterPage: jest.fn(),
+        getFetchChapters: jest.fn(),
         getManifestVersion: jest.fn(() => "4.1.0"),
         getRuntimeUrl: jest.fn((path: string) => `chrome-extension:///${path}`),
-        getBackgroundSeriesState: jest.fn(),
         getUpdateCount: jest.fn(),
-        listSubscriptionKeys: jest.fn(),
+        listBackgroundRefreshCandidates: jest.fn(),
         markSubscriptionCheckedByKey: jest.fn(),
         openTab: jest.fn(),
-        parseSeriesKey: jest.fn(),
         reconcileExtensionReleaseState: jest.fn(),
         refreshExtensionReleaseState: jest.fn().mockResolvedValue({
           checkedAt: 123,

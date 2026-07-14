@@ -1,4 +1,4 @@
-import type { SeriesRecord, SiteKey } from "./series";
+import type { SeriesKey, SeriesRecord, SiteKey } from "./series";
 
 export type PopupFeedCategory = "update" | "subscribe" | "history";
 
@@ -45,9 +45,11 @@ export type ReaderSeriesSyncState = {
   subscribed: boolean;
 };
 
-export type BackgroundSeriesState = {
+export type BackgroundRefreshCandidate = {
+  seriesKey: SeriesKey;
+  site: SiteKey;
+  comicsID: string;
   url: string;
-  cover: string;
   latestChapterID: string;
 };
 

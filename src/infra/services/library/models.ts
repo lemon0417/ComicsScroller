@@ -1,5 +1,5 @@
 export type {
-  BackgroundSeriesState,
+  BackgroundRefreshCandidate,
   PopupFeedCategory,
   PopupFeedEntry,
   PopupFeedSnapshot,

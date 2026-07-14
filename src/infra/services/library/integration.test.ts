@@ -943,9 +943,9 @@ describe("library integration", () => {
     await mutations.markSubscriptionCheckedByKey("dm5:m-newest", 200);
     await mutations.markSubscriptionCheckedByKey("dm5:m-oldest", 100);
 
-    await expect(queries.listSubscriptionKeys()).resolves.toEqual([
-      "dm5:m-oldest",
-      "dm5:m-newest",
+    await expect(queries.listBackgroundRefreshCandidates()).resolves.toEqual([
+      expect.objectContaining({ seriesKey: "dm5:m-oldest" }),
+      expect.objectContaining({ seriesKey: "dm5:m-newest" }),
     ]);
   });
 
@@ -985,9 +985,9 @@ describe("library integration", () => {
       },
     });
 
-    await expect(queries.listSubscriptionKeys()).resolves.toEqual([
-      "dm5:m-oldest",
-      "dm5:m-newest",
+    await expect(queries.listBackgroundRefreshCandidates()).resolves.toEqual([
+      expect.objectContaining({ seriesKey: "dm5:m-oldest" }),
+      expect.objectContaining({ seriesKey: "dm5:m-newest" }),
     ]);
     await expect(compat.exportLibraryDump()).resolves.toMatchObject({
       data: {

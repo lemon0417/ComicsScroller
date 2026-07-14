@@ -1,10 +1,9 @@
 import {
-  getBackgroundSeriesState,
   getPopupFeedSnapshot,
   getReaderSeriesState,
   getReaderSeriesSyncState,
   getSeriesCover,
-  listSubscriptionKeys,
+  listBackgroundRefreshCandidates,
 } from "./queries";
 import {
   CHAPTERS_STORE,
@@ -530,26 +529,29 @@ describe("library queries", () => {
     expect(rows.loadReadChapterIDsInTransaction).not.toHaveBeenCalled();
   });
 
-  it("loads background series state from the series summary only", async () => {
+  it("loads refresh candidates in one transaction and preserves dangling subscriptions", async () => {
     const seriesStore = {
-      get: jest.fn(() => ({
-        seriesKey: "dm5:m123",
-        site: "dm5",
-        comicsID: "m123",
-        title: "Demo",
-        cover: "cover.jpg",
-        url: "https://www.dm5.com/m123/",
-        lastRead: "m1",
-        read: ["m1"],
-        lastReadTitle: "Ch 1",
-        lastReadHref: "https://www.dm5.com/m123/1.html",
-        latestChapterID: "m2",
-        latestChapterTitle: "Ch 2",
-        latestChapterHref: "https://www.dm5.com/m123/2.html",
-      })),
+      getAll: jest.fn(() => [
+        {
+          seriesKey: "dm5:m-oldest",
+          site: "dm5",
+          comicsID: "m-oldest",
+          title: "Oldest",
+          cover: "cover.jpg",
+          url: "https://www.dm5.com/m-oldest/",
+          lastRead: "",
+          lastReadTitle: "",
+          lastReadHref: "",
+          latestChapterID: "m2",
+          latestChapterTitle: "Ch 2",
+          latestChapterHref: "https://www.dm5.com/m2/",
+        },
+      ]),
     };
+    const subscriptionsStore = { getAll: jest.fn() };
     const stores = {
       [SERIES_STORE]: seriesStore,
+      [SUBSCRIPTIONS_STORE]: subscriptionsStore,
     };
     const transaction = {
       objectStore: jest.fn(
@@ -561,38 +563,35 @@ describe("library queries", () => {
     };
     dbModule.openLibraryDb.mockResolvedValue(db);
 
-    await expect(getBackgroundSeriesState("dm5:m123")).resolves.toEqual({
-      url: "https://www.dm5.com/m123/",
-      cover: "cover.jpg",
-      latestChapterID: "m2",
-    });
-
-    expect(db.transaction).toHaveBeenCalledWith([SERIES_STORE], "readonly");
-  });
-
-  it("returns subscriptions ordered by oldest checkedAt and respects the query limit", async () => {
-    const subscriptionsStore = {
-      getAll: jest.fn(() => [
-        { seriesKey: "dm5:m-newest", position: 0, checkedAt: 300 },
-        { seriesKey: "dm5:m-oldest", position: 1, checkedAt: 100 },
-        { seriesKey: "dm5:m-middle", position: 2, checkedAt: 200 },
-      ]),
-    };
-    const transaction = {
-      objectStore: jest.fn(() => subscriptionsStore),
-    };
-    const db = {
-      transaction: jest.fn(() => transaction),
-    };
-    dbModule.openLibraryDb.mockResolvedValue(db);
     rows.loadSubscriptionKeysByCheckedAtInTransaction.mockResolvedValue([
       "dm5:m-oldest",
       "dm5:m-middle",
     ]);
 
-    await expect(listSubscriptionKeys(2)).resolves.toEqual([
-      "dm5:m-oldest",
-      "dm5:m-middle",
+    await expect(listBackgroundRefreshCandidates(2)).resolves.toEqual([
+      {
+        seriesKey: "dm5:m-oldest",
+        site: "dm5",
+        comicsID: "m-oldest",
+        url: "https://www.dm5.com/m-oldest/",
+        latestChapterID: "m2",
+      },
+      {
+        seriesKey: "dm5:m-middle",
+        site: "dm5",
+        comicsID: "m-middle",
+        url: "",
+        latestChapterID: "",
+      },
     ]);
+    expect(db.transaction).toHaveBeenCalledWith(
+      [SUBSCRIPTIONS_STORE, SERIES_STORE],
+      "readonly",
+    );
+    expect(rows.loadSubscriptionKeysByCheckedAtInTransaction).toHaveBeenCalledWith(
+      subscriptionsStore,
+      2,
+    );
+    expect(seriesStore.getAll).toHaveBeenCalledTimes(1);
   });
 });
