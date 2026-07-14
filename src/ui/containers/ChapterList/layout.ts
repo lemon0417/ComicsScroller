@@ -35,6 +35,18 @@ export function getChapterGridWidth(innerWidth: number) {
   );
 }
 
+export function getSafeChapterRowIndex(
+  chapterListLength: number,
+  columnCount: number,
+  currentChapterRowIndex: number,
+) {
+  const rowCount = Math.ceil(
+    Math.max(0, chapterListLength) / Math.max(1, columnCount),
+  );
+  if (rowCount === 0) return -1;
+  return Math.min(Math.max(0, currentChapterRowIndex), rowCount - 1);
+}
+
 export function useChapterGridLayout({
   show,
   currentChapterRowIndex,
@@ -53,6 +65,11 @@ export function useChapterGridLayout({
     bodyWidth: 0,
     gridViewportWidth: 0,
   });
+  const safeCurrentChapterRowIndex = getSafeChapterRowIndex(
+    chapterList.length,
+    columnCount,
+    currentChapterRowIndex,
+  );
 
   const syncGridViewportWidth = useCallback(() => {
     if (gridViewportAnimationFrameRef.current) {
@@ -82,17 +99,19 @@ export function useChapterGridLayout({
   const scrollToCurrentChapter = useCallback(() => {
     if (scrollAnimationFrameRef.current) {
       window.cancelAnimationFrame(scrollAnimationFrameRef.current);
+      scrollAnimationFrameRef.current = 0;
     }
+    if (safeCurrentChapterRowIndex < 0) return;
 
     scrollAnimationFrameRef.current = window.requestAnimationFrame(() => {
       scrollAnimationFrameRef.current = 0;
       gridApiRef.current?.scrollToCell({
         columnIndex: 0,
-        rowIndex: currentChapterRowIndex,
+        rowIndex: safeCurrentChapterRowIndex,
         rowAlign: "center",
       });
     });
-  }, [currentChapterRowIndex]);
+  }, [safeCurrentChapterRowIndex]);
 
   const measureBodyWidth = useCallback(() => {
     const bodyNode = bodyNodeRef.current;
@@ -116,14 +135,19 @@ export function useChapterGridLayout({
     );
   }, []);
 
-  const handleClose = useCallback((onClose: () => void) => {
-    gridApiRef.current?.scrollToCell({
-      columnIndex: 0,
-      rowIndex: 0,
-      rowAlign: "start",
-    });
-    onClose();
-  }, []);
+  const handleClose = useCallback(
+    (onClose: () => void) => {
+      if (safeCurrentChapterRowIndex >= 0) {
+        gridApiRef.current?.scrollToCell({
+          columnIndex: 0,
+          rowIndex: 0,
+          rowAlign: "start",
+        });
+      }
+      onClose();
+    },
+    [safeCurrentChapterRowIndex],
+  );
 
   const gridRefHandler = useCallback(
     (gridApi: GridImperativeAPI | null) => {

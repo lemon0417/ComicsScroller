@@ -6,6 +6,7 @@ jest.mock("react-redux", () => ({
 }));
 
 import ChapterList from "./index";
+import { getSafeChapterRowIndex } from "./layout";
 
 type ChapterListProps = {
   show: boolean;
@@ -87,6 +88,27 @@ describe("ChapterList", () => {
       screen.getByRole("button", { name: "關閉" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "關閉" })).toHaveFocus();
+  });
+
+  it("opens and closes an empty chapter list without scrolling to a missing row", () => {
+    const { props } = renderChapterList({
+      chapterList: [],
+      chapters: {},
+      currentChapterID: "",
+      currentChapterRowIndex: 0,
+      readSet: new Set(),
+    });
+
+    expect(screen.getByRole("dialog", { name: "章節" })).toBeInTheDocument();
+    expect(() =>
+      fireEvent.click(screen.getByRole("button", { name: "關閉" })),
+    ).not.toThrow();
+    expect(props.showChapterListHandler).toHaveBeenCalled();
+  });
+
+  it("clamps stale chapter rows to the available grid", () => {
+    expect(getSafeChapterRowIndex(3, 2, 99)).toBe(1);
+    expect(getSafeChapterRowIndex(0, 2, 0)).toBe(-1);
   });
 
   it("traps focus within the chapter dialog", () => {
