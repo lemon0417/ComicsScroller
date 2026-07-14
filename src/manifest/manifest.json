@@ -5,13 +5,16 @@
   "description": "一個支援動漫屋、無限動漫、sfacg，給你更好的漫畫閱讀體驗的 chrome extension ",
   "icons": {
     "16": "imgs/comics-16.png",
+    "32": "imgs/comics-32.png",
     "48": "imgs/comics-48.png",
     "64": "imgs/comics-64.png",
     "128": "imgs/comics-128.png"
   },
   "action": {
     "default_icon": {
-      "16": "imgs/comics-16.png"
+      "16": "imgs/comics-16.png",
+      "24": "imgs/comics-24.png",
+      "32": "imgs/comics-32.png"
     },
     "default_title": "Comics Scroller",
     "default_popup": "popup.html"
