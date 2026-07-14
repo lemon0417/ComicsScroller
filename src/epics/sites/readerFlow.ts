@@ -40,9 +40,10 @@ import type {
   SiteMeta,
   SiteMetaFetcher,
 } from "@sites/types";
+import { devLog } from "@utils/devLog";
 import findIndex from "lodash/findIndex";
 import { ofType } from "redux-observable";
-import { EMPTY, from, merge, type Observable, of } from "rxjs";
+import { defer, EMPTY, from, merge, type Observable, of } from "rxjs";
 import {
   catchError,
   defaultIfEmpty,
@@ -363,8 +364,16 @@ export function createFetchChapterEpic(config: ReaderFlowConfig): AppEpic {
       switchMap((action) => {
         const { chapter: chapterID } = action as ReaderChapterAction;
         const readerGeneration = getReaderGeneration(state$);
-        return config.fetchChapterImages$(chapterID).pipe(
+        return defer(() => config.fetchChapterImages$(chapterID)).pipe(
           defaultIfEmpty(null),
+          catchError((error: unknown) => {
+            devLog("reader:fetchChapter:error", {
+              chapterID,
+              reason: error instanceof Error ? error.message : String(error),
+              site: config.site,
+            });
+            return of(null);
+          }),
           mergeMap((payload) => {
             if (getReaderGeneration(state$) !== readerGeneration) {
               return EMPTY;
@@ -374,7 +383,7 @@ export function createFetchChapterEpic(config: ReaderFlowConfig): AppEpic {
             }
             return merge(
               of(...buildInitialChapterActions(payload)),
-              resolveFetchMetaOptions$(payload).pipe(
+              defer(() => resolveFetchMetaOptions$(payload)).pipe(
                 mergeMap((fetchMetaOptions) =>
                   config.fetchMeta$(payload.comicUrl, fetchMetaOptions),
                 ),
@@ -412,6 +421,16 @@ export function createFetchChapterEpic(config: ReaderFlowConfig): AppEpic {
                       });
                     }),
                   );
+                }),
+                catchError((error: unknown) => {
+                  devLog("reader:fetchMetadata:error", {
+                    chapterID: payload.chapterID,
+                    reason:
+                      error instanceof Error ? error.message : String(error),
+                    seriesID: payload.seriesID,
+                    site: config.site,
+                  });
+                  return EMPTY;
                 }),
               ),
             );

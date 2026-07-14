@@ -15,7 +15,7 @@ import {
   updateChapterNowIndex,
 } from "@domain/reducers/comics";
 import { applyReaderSeriesState } from "@infra/services/library/reader";
-import { lastValueFrom, of, Subject } from "rxjs";
+import { lastValueFrom, of, Subject, throwError } from "rxjs";
 import { toArray } from "rxjs/operators";
 
 import {
@@ -136,6 +136,149 @@ describe("readerFlow", () => {
 
     expect(fetchMeta$).not.toHaveBeenCalled();
     expect(output).toEqual([setChapterLoadFailed()]);
+  });
+
+  it("keeps handling chapters after a chapter request errors", async () => {
+    const fetchChapterImages$ = jest
+      .fn()
+      .mockReturnValueOnce(throwError(() => new Error("chapter failed")))
+      .mockReturnValueOnce(
+        of({
+          chapterID: "c1",
+          seriesID: "demo-series",
+          comicUrl: "https://example.com/demo",
+          imgList: [{ chapter: "c1", src: "https://example.com/c1-1.jpg" }],
+        }),
+      );
+    const fetchMeta$ = jest.fn(() =>
+      of({
+        title: "Demo",
+        cover: "",
+        chapterList: ["c1"],
+        chapters: {
+          c1: { title: "C1", href: "https://example.com/c1" },
+        },
+      }),
+    );
+    const action$ = new Subject<any>();
+    const outputPromise = lastValueFrom(
+      createFetchChapterEpic({
+        site: "dm5",
+        baseURL: "https://www.dm5.com",
+        fetchChapterImages$,
+        fetchMeta$,
+      })(action$, {} as any).pipe(toArray()),
+    );
+
+    action$.next(fetchChapter("c0"));
+    action$.next(fetchChapter("c1"));
+    action$.complete();
+
+    const output = await outputPromise;
+    expect(output).toEqual(expect.arrayContaining([setChapterLoadFailed()]));
+    expect(output).toEqual(expect.arrayContaining([updateChapterList(["c1"])]));
+    expect(fetchChapterImages$).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps handling chapters after metadata fetch errors", async () => {
+    const fetchChapterImages$ = jest.fn((chapterID: string) =>
+      of({
+        chapterID,
+        seriesID: "demo-series",
+        comicUrl: "https://example.com/demo",
+        imgList: [
+          { chapter: chapterID, src: `https://example.com/${chapterID}-1.jpg` },
+        ],
+      }),
+    );
+    const fetchMeta$ = jest
+      .fn()
+      .mockReturnValueOnce(throwError(() => new Error("metadata failed")))
+      .mockReturnValueOnce(
+        of({
+          title: "Demo",
+          cover: "",
+          chapterList: ["c2", "c1"],
+          chapters: {
+            c2: { title: "C2", href: "https://example.com/c2" },
+            c1: { title: "C1", href: "https://example.com/c1" },
+          },
+        }),
+      );
+    const action$ = new Subject<any>();
+    const outputPromise = lastValueFrom(
+      createFetchChapterEpic({
+        site: "dm5",
+        baseURL: "https://www.dm5.com",
+        fetchChapterImages$,
+        fetchMeta$,
+      })(action$, {} as any).pipe(toArray()),
+    );
+
+    action$.next(fetchChapter("c1"));
+    action$.next(fetchChapter("c2"));
+    action$.complete();
+
+    const output = await outputPromise;
+    expect(output).not.toContainEqual(setChapterLoadFailed());
+    expect(output).toEqual(
+      expect.arrayContaining([
+        updateChapterList(["c2", "c1"]),
+        updateChapterNowIndex(0),
+      ]),
+    );
+    expect(fetchMeta$).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps handling chapters after reader persistence errors", async () => {
+    const applyReaderSeriesStateMock = applyReaderSeriesState as jest.Mock;
+    applyReaderSeriesStateMock
+      .mockRejectedValueOnce(new Error("persistence failed"))
+      .mockResolvedValueOnce({
+        seriesKey: "dm5:demo-series",
+        readChapterIDs: [],
+        subscribed: false,
+        updatesCount: 0,
+      });
+    const fetchChapterImages$ = jest.fn((chapterID: string) =>
+      of({
+        chapterID,
+        seriesID: "demo-series",
+        comicUrl: "https://example.com/demo",
+        imgList: [
+          { chapter: chapterID, src: `https://example.com/${chapterID}-1.jpg` },
+        ],
+      }),
+    );
+    const fetchMeta$ = jest.fn(() =>
+      of({
+        title: "Demo",
+        cover: "",
+        chapterList: ["c2", "c1"],
+        chapters: {
+          c2: { title: "C2", href: "https://example.com/c2" },
+          c1: { title: "C1", href: "https://example.com/c1" },
+        },
+      }),
+    );
+    const action$ = new Subject<any>();
+    const outputPromise = lastValueFrom(
+      createFetchChapterEpic({
+        site: "dm5",
+        baseURL: "https://www.dm5.com",
+        fetchChapterImages$,
+        fetchMeta$,
+      })(action$, {} as any).pipe(toArray()),
+    );
+
+    action$.next(fetchChapter("c1"));
+    action$.next(fetchChapter("c2"));
+    action$.complete();
+
+    const output = await outputPromise;
+    expect(output).not.toContainEqual(setChapterLoadFailed());
+    expect(output).toEqual(expect.arrayContaining([updateChapterList(["c2", "c1"])]));
+    expect(applyReaderSeriesStateMock).toHaveBeenCalledTimes(2);
   });
 
   it("dedupes in-flight preload requests for the same chapter", async () => {
