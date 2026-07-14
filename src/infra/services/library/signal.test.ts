@@ -1,8 +1,8 @@
-import { subscribeToLibrarySignal } from "./signal";
 import {
   emitLibrarySignal,
   withBatchedLibrarySignals,
 } from "./shared";
+import { subscribeToLibrarySignal } from "./signal";
 
 describe("library signal", () => {
   let addListener: jest.Mock;

@@ -25,6 +25,7 @@ import {
   CHAPTERS_STORE,
   HISTORY_STORE,
   type HistoryRow,
+  parseSeriesKey,
   READS_STORE,
   SERIES_STORE,
   type SeriesRow,
@@ -32,7 +33,6 @@ import {
   SUBSCRIPTIONS_STORE,
   type UpdateRow,
   UPDATES_STORE,
-  parseSeriesKey,
 } from "./schema";
 import {
   ensureLibraryReady,

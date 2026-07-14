@@ -1,5 +1,5 @@
-import { fetchMeta$ } from "@sites/sf/meta";
 import { getSiteChapterFetcher } from "@sites/registry";
+import { fetchMeta$ } from "@sites/sf/meta";
 import { firstValueFrom } from "rxjs";
 
 describe("sf fetchMeta$", () => {

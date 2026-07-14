@@ -546,33 +546,40 @@ export async function withBatchedLibrarySignals<T>(
   activeLibrarySignalBatch = batch;
   batch.participants += 1;
   let runFailed = false;
+  let runError: unknown;
+  let result: T | undefined;
 
   try {
-    return await run();
+    result = await run();
   } catch (error) {
     runFailed = true;
-    throw error;
-  } finally {
-    batch.participants -= 1;
-    if (batch.participants === 0 && activeLibrarySignalBatch === batch) {
-      activeLibrarySignalBatch = null;
-      if (batch.scopes.size > 0) {
-        const source =
-          batch.sources.size === 1
-            ? Array.from(batch.sources)[0]
-            : "libraryBatch";
-        try {
-          await writeLibrarySignal(
-            source,
-            Array.from(batch.scopes),
-            batch.includesAllSeries ? undefined : Array.from(batch.seriesKeys),
-          );
-        } catch (signalError) {
-          if (!runFailed) throw signalError;
-        }
+    runError = error;
+  }
+
+  batch.participants -= 1;
+  let flushError: unknown;
+  if (batch.participants === 0 && activeLibrarySignalBatch === batch) {
+    activeLibrarySignalBatch = null;
+    if (batch.scopes.size > 0) {
+      const source =
+        batch.sources.size === 1
+          ? Array.from(batch.sources)[0]
+          : "libraryBatch";
+      try {
+        await writeLibrarySignal(
+          source,
+          Array.from(batch.scopes),
+          batch.includesAllSeries ? undefined : Array.from(batch.seriesKeys),
+        );
+      } catch (error) {
+        flushError = error;
       }
     }
   }
+
+  if (runFailed) throw runError;
+  if (flushError) throw flushError;
+  return result as T;
 }
 
 export async function persistSnapshot(
