@@ -1,261 +1,96 @@
----
-name: Comic Scroller
-description: A clean, intuitive, bright product UI for focused manga reading and local library management.
-colors:
-  ink: "#0F172A"
-  ink-muted: "#64748B"
-  ink-soft: "#334155"
-  paper: "#FFFFFF"
-  paper-soft: "#F8FAFC"
-  paper-wash: "#EEF2F7"
-  tab-wash: "#D8E8EB"
-  border: "#D6DEE6"
-  primary: "#2563EB"
-  primary-hover: "#1D4ED8"
-  danger-text: "#B91C1C"
-  danger-bg: "#FEF2F2"
-  danger-bg-hover: "#FEE2E2"
-  success-bg: "#F0FDF4"
-  cover-fallback: "#E2E8F0"
-typography:
-  display:
-    fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
-    fontSize: "24px"
-    fontWeight: 600
-    lineHeight: 1.25
-    letterSpacing: "-0.03em"
-  headline:
-    fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
-    fontSize: "18px"
-    fontWeight: 600
-    lineHeight: 1.3
-    letterSpacing: "-0.02em"
-  title:
-    fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
-    fontSize: "15px"
-    fontWeight: 600
-    lineHeight: 1.35
-    letterSpacing: "-0.01em"
-  body:
-    fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
-    fontSize: "14px"
-    fontWeight: 400
-    lineHeight: 1.5
-    letterSpacing: "0"
-  label:
-    fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
-    fontSize: "12px"
-    fontWeight: 500
-    lineHeight: 1.4
-    letterSpacing: "0"
-rounded:
-  sm: "8px"
-  md: "12px"
-  lg: "16px"
-  panel: "22px"
-  dialog: "24px"
-  pill: "999px"
-spacing:
-  xs: "4px"
-  sm: "8px"
-  md: "12px"
-  lg: "16px"
-  xl: "20px"
-  xxl: "24px"
-components:
-  button-primary:
-    backgroundColor: "{colors.primary}"
-    textColor: "{colors.paper}"
-    typography: "{typography.label}"
-    rounded: "{rounded.sm}"
-    padding: "8px 14px"
-  button-primary-hover:
-    backgroundColor: "{colors.primary-hover}"
-    textColor: "{colors.paper}"
-    typography: "{typography.label}"
-    rounded: "{rounded.sm}"
-    padding: "8px 14px"
-  button-secondary:
-    backgroundColor: "{colors.paper}"
-    textColor: "{colors.ink-muted}"
-    typography: "{typography.label}"
-    rounded: "{rounded.sm}"
-    padding: "8px 14px"
-  button-danger:
-    backgroundColor: "{colors.danger-bg}"
-    textColor: "{colors.danger-text}"
-    typography: "{typography.label}"
-    rounded: "{rounded.sm}"
-    padding: "8px 14px"
-  icon-button:
-    backgroundColor: "{colors.paper}"
-    textColor: "{colors.ink-muted}"
-    rounded: "{rounded.md}"
-    height: "36px"
-    width: "36px"
-  panel:
-    backgroundColor: "{colors.paper}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.panel}"
-  row-card:
-    backgroundColor: "{colors.paper}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.md}"
-    padding: "12px 16px"
-  tab-active:
-    backgroundColor: "{colors.paper}"
-    textColor: "{colors.ink}"
-    typography: "{typography.body}"
-    rounded: "{rounded.md}"
-    padding: "0 20px"
----
-
 # Design System: Comic Scroller
 
-## 1. Overview
+## 1. Visual Theme & Atmosphere
 
-**Creative North Star: "Clear Reading Desk"**
+Comic Scroller is a warm, reader-first product interface built around the idea of a **clear reading desk**. Parchment surfaces make the browser extension feel calm and familiar, while deep ink keeps controls trustworthy and easy to scan. The interface should become visually quiet as soon as the comic pages appear.
 
-Comic Scroller is a product interface for staying in a manga reading flow. The system should feel like a cleared desk beside the page: bright enough for quick orientation, quiet enough to disappear once reading starts, and structured enough that local data actions feel trustworthy.
+- **Density:** Daily App Balanced, 6/10. Popup and library views are compact enough for frequent use without becoming cockpit-dense.
+- **Variance:** Predictable Symmetric, 3/10. Repeated reader and library actions stay in familiar positions; asymmetry is reserved for content-led website compositions.
+- **Motion:** Static Restrained, 2/10. Motion confirms state changes and loading only; it never competes with reading.
+- **Personality:** Clean, intuitive, bright, local, and dependable.
+- **Source of truth:** Extension surfaces define the product language. The website may use more whitespace and larger type, but it must retain the same parchment, ink, and single-accent hierarchy.
 
-The primary extension UI is restrained by design. Cool paper surfaces, slate text, and one blue accent support the PRODUCT.md personality: "乾淨、直觀、明亮." Decoration must never compete with comic pages, chapter navigation, or library decisions. The GitHub Pages site may be more expressive, but extension surfaces are the normative design source.
+The physical scene is a manga reader returning to a softly lit reading desk: the comic is the subject, the parchment UI is the desk, and controls remain close at hand without becoming decoration.
 
-This system explicitly rejects cluttered, overly promotional, visually heavy, or decorative UI that competes with the comic pages themselves.
+## 2. Color Palette & Roles
 
-**Key Characteristics:**
-- Restrained light product surfaces with one action blue.
-- Compact, readable Inter-based hierarchy.
-- Rounded but familiar controls, usually 8-24px.
-- Low, ambient elevation and thin slate borders.
-- Explicit destructive-action language and predictable state changes.
+- **Parchment Canvas** (`#ECE6D6`) — Dominant brand color and primary application background. This is the visual field users should associate with Comic Scroller.
+- **Soft Parchment** (`#F8F4E9`) — Loading surfaces, subdued rows, and secondary background layers.
+- **Paper Surface** (`#FFFDF7`) — Panels, dialogs, cards, active tabs, and reader page frames.
+- **Parchment Hover** (`#FCF8ED`) — Quiet hover state over Paper Surface.
+- **Pressed Parchment** (`#EFE8D6`) — Stronger hover or pressed state when a surface change must be obvious.
+- **Tab Wash** (`#E0D8C4`) — Inactive tab rails and grouped navigation backgrounds.
+- **Charcoal Ink** (`#131311`) — Primary text, high-emphasis icons, and the darkest brand mark. Never substitute pure black.
+- **Shadow Ink** (`#261F17`) — Brand-mark foreground and warm elevation tint.
+- **Soft Ink** (`#38342D`) — Secondary headings and standard controls.
+- **Muted Umber** (`#746B5C`) — Metadata and supporting text that remains comfortably legible.
+- **Parchment Line** (`#CCC2AB`) — One-pixel structural borders and dividers.
+- **Reader Blue** (`#1F52B1`) — The single functional accent for primary actions, current selection, follow state, and focus rings. It is not the dominant brand color and must not become a decorative background field.
+- **Reader Blue Pressed** (`#143B87`) — Hover and active state within the Reader Blue accent family only.
+- **Delete Red** (`#9A362F`) with **Delete Wash** (`#FDEFE9`) — Destructive text, borders, and confirmation surfaces only.
+- **Success Wash** (`#EBF6E2`) — Successful completion feedback only; do not use green as a routine accent.
+- **Cover Fallback** (`#DCD3BE`) — Missing cover and media placeholder blocks.
 
-## 2. Colors
+Use one warm neutral family throughout; do not mix these parchment and umber values with cool slate grays. Depth comes from the Parchment Canvas → Soft Parchment → Paper Surface stack before shadows are introduced. The brand icon uses parchment, ink, and a Paper Surface separation halo only; Reader Blue stays out of the mark.
 
-The palette is a cool paper system: pale blue-gray surfaces, slate text, and a single saturated blue for primary actions, active states, and focus.
+## 3. Typography Rules
 
-### Primary
-- **Reader Blue** (`primary`): Used for primary buttons, active chapter state, follow state, spinner stroke, and focus rings. It should stay rare and functional.
-- **Reader Blue Hover** (`primary-hover`): Used only when a primary action needs a stronger hover state.
+- **Display:** Avenir Next, `ui-sans-serif`, `system-ui`, sans-serif; 24px, weight 600, line-height 1.25, letter-spacing `-0.03em`. Reserve for the manage-page title.
+- **Headline:** Avenir Next with the same fallbacks; 18px, weight 600, line-height 1.3, letter-spacing `-0.02em`. Use for section and reader-state headings.
+- **Title:** Avenir Next with the same fallbacks; 15–17px, weight 600, line-height 1.35, letter-spacing no tighter than `-0.02em`. Use for series, dialogs, and dense panels.
+- **Body:** Avenir Next with the same fallbacks; 14px, weight 400–500, line-height 1.5–1.7. Keep prose at or below 65 characters per line.
+- **Label:** Avenir Next with the same fallbacks; 11–12px, weight 500–700, line-height 1.4. Use for buttons, chips, badges, and compact metadata.
+- **Mono:** `ui-monospace`, SFMono-Regular, Consolas, monospace. Use only for code, versions, IDs, or diagnostic values.
 
-### Secondary
-- **Delete Red** (`danger-text`): Used for destructive action text.
-- **Soft Delete Wash** (`danger-bg`, `danger-bg-hover`): Used behind destructive buttons and error notices so destructive state is legible without becoming aggressive.
-- **Success Wash** (`success-bg`): Used for success notices only.
+Hierarchy comes from weight, ink strength, and spacing rather than oversized type. Software UI uses sans-serif only: no Inter, generic serif, editorial display face, or mono-forward styling. Labels and task-critical text must never rely on low-opacity color to communicate hierarchy.
 
-### Neutral
-- **Slate Ink** (`ink`): Main text and high-emphasis icons.
-- **Muted Slate** (`ink-muted`, `ink-soft`): Secondary text, read chapter text, and lower-emphasis UI.
-- **Paper White** (`paper`): Panels, rows, dialogs, and active tabs. This is a current implementation token; new work should avoid expanding raw white outside established surface roles.
-- **Soft Paper** (`paper-soft`): Hover backgrounds, row softening, and loading surfaces.
-- **Washed Paper** (`paper-wash`): Page background and reader canvas gradient.
-- **Tab Wash** (`tab-wash`): Default tab rail background.
-- **Hairline Border** (`border`): Manage content divider and heavier structural boundaries.
-- **Cover Fallback** (`cover-fallback`): Placeholder image blocks and skeleton cover surfaces.
+## 4. Component Stylings
 
-### Named Rules
+- **Primary buttons:** Reader Blue fill, Paper Surface text, 8px corner radius, 12px semibold label, and `8px 14px` padding. Hover uses Reader Blue Pressed; active feedback translates the button down by 1px. Focus uses a visible 2px Reader Blue ring with a parchment offset.
+- **Secondary buttons:** Paper Surface fill, Soft Ink text, 1px Parchment Line border, and Parchment Hover feedback. They share the same height, radius, and typography as primary buttons.
+- **Danger buttons:** Delete Wash fill with Delete Red text and border. Copy must state exactly what will be removed and what will remain.
+- **Icon buttons:** Familiar line icons inside 36–44px square targets with 8–12px radius. Always provide an accessible label and visible focus state.
+- **Panels and dialogs:** Paper Surface over Parchment Canvas, 16–24px radius, and a warm shadow no darker than `rgba(38, 31, 23, 0.12)`. Use elevation only for an outer panel, modal, or reader page frame.
+- **Series rows:** Compact horizontal compositions with a 40–44px cover, site label, clamped title, concise status, and right-aligned action. Prefer dividers and whitespace over nested cards.
+- **Tabs:** Tab Wash rail with a Paper Surface active tab. Current state is communicated by surface, ink, and semantics rather than blue decoration.
+- **Inputs:** Label above, optional helper text below, error below the field. Paper Surface fill, 1px Parchment Line border, 8–12px radius, and Reader Blue focus ring. Never use floating labels.
+- **Loading:** Skeletons match the exact cover, row, or content dimensions. A looping spinner is permitted only for a compact isolated action, never as decorative ambient motion.
+- **Empty states:** Explain what belongs in the space and provide the single most useful next action. Do not stop at “No data.”
+- **Errors:** Keep errors inline when recovery is local; show a clearly labeled retry action and preserve already loaded reading content.
+- **Brand mark:** A vertical parchment manga volume on a transparent canvas, with an ink outline, spine, and cover panel. An ink downward arrow overlaps the lower-right cover in the foreground; a Paper Surface halo separates the layers. The volume must fill the available toolbar frame and remain recognizable at 16px.
 
-**The One Blue Rule.** Reader Blue is for action, current selection, focus, and meaningful state. It is not decoration.
+Every interactive component defines default, hover, focus, active, disabled, loading, and error behavior where applicable. Use the same component vocabulary in reader, popup, and manage views.
 
-**The Paper Stack Rule.** Depth comes from moving between Washed Paper, Soft Paper, and Paper White before reaching for shadows.
+## 5. Layout Principles
 
-**The Slate Legibility Rule.** Text below `ink/60` is metadata only. Anything required to complete a task must be at least the visual strength of `ink/60`.
+- Reader content owns the visual hierarchy. Comic pages remain centered and uninterrupted; navigation occupies a compact 48px toolbar.
+- Popup and manage views use one primary reading path: resume or inspect updates first, then manage secondary data.
+- Use Flexbox for toolbars and rows, and CSS Grid for true two-dimensional arrangements. Do not simulate grids with percentage calculations.
+- Contain long-form website content with a readable max-width. Product lists may run wider when their data requires it.
+- Keep elements in separate spatial zones. Menus, dialogs, and popovers must not overlap or clip task-critical content unexpectedly.
+- Avoid equal three-card marketing rows. Prefer a single focused panel, an asymmetric two-column composition, or a dense list according to the content.
+- Below 768px, multi-column website layouts collapse to one column, touch targets reach at least 44px, and horizontal overflow is forbidden.
+- Use `min-height: 100dvh` for full-viewport web surfaces. Do not use fixed `100vh` when mobile browser chrome can resize the viewport.
+- The documentation website may use a left-aligned content-led hero with one primary action. The extension itself never uses hero layouts.
 
-## 3. Typography
+## 6. Motion & Interaction
 
-**Display Font:** Inter with system fallbacks.  
-**Body Font:** Inter with system fallbacks.  
-**Label/Mono Font:** No distinct label or mono font in the extension UI.
+- Standard state transitions last 150–220ms and use an ease-out-quart or ease-out-quint curve. Never use linear, bounce, or elastic easing.
+- Animate only `transform`, `opacity`, or a restrained color transition. Do not animate layout dimensions or positions such as `top`, `left`, `width`, or `height`.
+- Active feedback may translate a button by 1px. Dialogs may use a short opacity and scale entrance when it improves orientation.
+- Loading indicators may loop while work is actually pending. Idle controls, navigation, cards, and brand elements never pulse, float, shimmer, or type indefinitely.
+- Lists render immediately. Do not delay reading data with waterfall reveals or decorative page-load choreography.
+- Preserve scroll position and reading continuity across updates. Motion must never move the comic away from the reader’s current place.
+- Every animation has a `prefers-reduced-motion: reduce` alternative using an instant state change or short crossfade.
 
-**Character:** The type system is product-native and compact. It uses weight and small spacing shifts rather than ornamental font choices.
+## 7. Anti-Patterns (Banned)
 
-### Hierarchy
-- **Display** (600, 24px, 1.25, -0.03em): Manage page title only. Do not use for card headings.
-- **Headline** (600, 18px, 1.3, -0.02em): Section headings and reader paywall/error titles.
-- **Title** (600, 15-17px, 1.35, -0.01em to -0.02em): Popup title, dialog title, series titles, and dense panel headings.
-- **Body** (400-500, 13-14px, 1.5-1.7): Descriptions, summaries, settings copy, and notices.
-- **Label** (500-700, 10-12px, 1.4, 0-0.08em): Buttons, chips, count badges, compact metadata, and site labels.
-
-### Named Rules
-
-**The One Family Rule.** Extension UI uses one sans family. Do not introduce display fonts, serif headings, or mono-forward styling in product surfaces.
-
-**The Compact Title Rule.** Cards, rows, dialogs, and toolbars keep headings at 15-18px. Hero-scale type belongs only to the website, never to reader, popup, or manage UI.
-
-## 4. Elevation
-
-Comic Scroller uses a hybrid of tonal layering and soft ambient shadows. Most structure is established with border hairlines and background shifts; shadows appear on panels, dialogs, popup shells, and reader page surfaces. Elevation should feel like paper sitting above a pale desk, not like floating glass.
-
-### Shadow Vocabulary
-- **Panel Ambient** (`0 1px 2px rgba(15, 23, 42, 0.04), 0 16px 40px rgba(15, 23, 42, 0.04)`): Default panel and dialog lift.
-- **Popup Ambient** (`0 1px 2px rgba(15, 23, 42, 0.03), 0 10px 24px rgba(15, 23, 42, 0.03)`): Lower shadow for the browser-action popup.
-- **Reader Page Ambient** (`0 1px 2px rgba(15, 23, 42, 0.04), 0 18px 40px rgba(15, 23, 42, 0.05)`): Image page frame lift.
-- **Tab Lift** (`0 -1px 0 rgba(255,255,255,0.8), 0 10px 24px rgba(15,23,42,0.06)`): Active default tab treatment.
-
-### Named Rules
-
-**The Border-First Rule.** Use a 1px slate hairline and a surface shift before adding a shadow.
-
-**The No Heavy Shadow Rule.** Extension surfaces must not use dark material-style shadows from the legacy Tailwind `paper-*` scale unless the whole component vocabulary is being redesigned.
-
-## 5. Components
-
-### Buttons
-
-Buttons are compact, direct, and textual. Icons may appear inside row actions when they reinforce the command, but the text label remains visible.
-
-- **Shape:** Small rounded rectangle (8px radius).
-- **Primary:** Reader Blue background, white text, 12px medium label, `8px 14px` padding.
-- **Hover / Focus:** Hover shifts to Reader Blue Hover. Focus uses a 2px Reader Blue ring with a pale paper offset.
-- **Secondary:** White background, slate text, 1px slate hairline, Soft Paper hover.
-- **Danger:** Soft Delete Wash background, Delete Red text, subtle red border, deeper wash hover.
-- **Quiet / Link:** Transparent text actions are small and underlined only when they behave as links.
-
-### Chips
-
-Chips are informational, not decorative. Site labels use uppercase 10-11px labels with modest tracking and muted slate color. Count badges use Soft Paper fill, hairline border, and 12px medium text.
-
-### Cards / Containers
-
-- **Corner Style:** Rows use 12-16px radius. Panels use 18-22px. Dialogs and large reader chapter panels use 24px.
-- **Background:** Paper White over Washed Paper or Soft Paper.
-- **Shadow Strategy:** Use Panel Ambient only on outer panels, dialogs, and reader page surfaces.
-- **Border:** 1px `rgba(15, 23, 42, 0.08)` for normal surfaces. Increase opacity only for hover or active states.
-- **Internal Padding:** Rows use 12-16px. Dialogs use 20px. Empty states use 24px horizontal and 40px vertical.
-
-### Inputs / Fields
-
-The extension currently has only file inputs hidden behind explicit buttons and a checkbox inside a confirmation dialog. Any new visible field should match the button vocabulary: Paper White background, 1px slate hairline, 8-12px radius, Reader Blue focus ring, and clear disabled/error states.
-
-### Navigation
-
-Reader navigation is a fixed 48px top bar with compact icon buttons, truncated title/chapter text, and a soft translucent paper background. Manage navigation uses tabs with 44px height, active Paper White surface, and count badges. Popup navigation is action-first: a compact header plus a secondary Manage button.
-
-### Series Row
-
-Series rows are the signature library component. They combine a small site chip, 40-44px cover, clamped title, summary/detail copy, and right-aligned row actions. Popup rows are denser and softer; manage rows are roomier and more durable.
-
-### Reader Page Surface
-
-Reader pages use centered white rounded frames over Washed Paper. The comic image is the content. Loading, retry, paywall, and end markers reuse the same surface language so the reading flow does not visually jump between states.
-
-## 6. Do's and Don'ts
-
-### Do:
-
-- **Do** treat extension UI as the source of truth for the product design system.
-- **Do** use Reader Blue only for primary actions, active/current state, focus, and meaningful status.
-- **Do** preserve the UI flow from PRODUCT.md: "Reader first: page images and chapter flow take priority over interface decoration."
-- **Do** make destructive data actions explicit, including what is preserved and what is removed.
-- **Do** keep component vocabulary consistent across reader, popup, and manage surfaces.
-- **Do** favor thin borders, tonal shifts, and compact type before adding more shadow or color.
-- **Do** maintain visible focus states and WCAG AA contrast for task-critical text.
-
-### Don't:
-
-- **Don't** create cluttered, overly promotional, visually heavy, or decorative UI that competes with comic pages.
-- **Don't** introduce display fonts, editorial typography, or marketing-page scale into extension surfaces.
-- **Don't** use side-stripe borders as a colored accent on cards, list items, callouts, or alerts.
-- **Don't** use gradient text, decorative glassmorphism, hero metrics, or identical card grids in product UI.
-- **Don't** add new color families for routine states when existing slate, paper, blue, red, and green roles cover the job.
-- **Don't** make modals the first answer for non-destructive flows; inline or progressive controls should be exhausted first.
-- **Don't** rely on low-opacity slate text for required actions, errors, or labels users must read to complete a task.
+- No pure black, cool slate palette, purple/neon accent, gradient text, outer glow, or decorative glassmorphism.
+- No blue-dominant brand surfaces. Reader Blue is a functional state color only.
+- No Inter, generic serif, decorative display font, or custom cursor.
+- No overlapping text and imagery, clipped controls, or absolute-positioned decoration that competes with comic pages.
+- No identical three-column card grid, nested cards, hero metrics, numbered section scaffolding, or repeated uppercase eyebrows.
+- No decorative perpetual motion, bouncing chevrons, “Scroll to explore,” “Swipe down,” or staggered list reveals.
+- No emojis as interface icons, generic placeholder identities, fake round statistics, broken stock-image links, or AI copywriting clichés such as “Elevate,” “Seamless,” “Unleash,” and “Next-Gen.”
+- No unexplained destructive action, inaccessible icon-only control, invisible focus state, or required text below WCAG AA contrast.
+- No visual embellishment that competes with manga pages or makes local data actions feel unpredictable.
