@@ -149,7 +149,7 @@ UI → Actions → Epics → Services → IndexedDB/Network → Actions
   - 更新比對以 `series.latestChapterID` 為 checkpoint，只將站點章節列表中位於 checkpoint 前方的章節視為新章
   - checkpoint 缺失或找不到時只刷新 baseline，不把既有舊章節加入 updates
   - metadata 必須提供非空、不重複且可解析 href 的章節列表；無效 payload 計入 errors 但仍推進 `checkedAt`，避免壞來源阻塞後續訂閱
-  - 每輪 background refresh 使用固定上限並發與單筆 metadata fetch timeout，避免某個慢站拖住整輪 service worker 工作
+  - 每輪 background refresh 使用固定上限並發與單筆 metadata fetch timeout；timeout unsubscribe 必須同步 abort 站點 HTTP request，避免慢站拖住 service worker 或殘留無人等待的網路工作
   - background refresh mutation 只回傳 `updatesCount`，不回傳可能只 hydrate 部分欄位的 `SeriesRecord`
 - Repository 測試基礎：
   - 真實 IndexedDB integration tests 使用 `fake-indexeddb`

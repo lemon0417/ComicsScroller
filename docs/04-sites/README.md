@@ -17,6 +17,7 @@ Codex 處理站點 / parser / manifest / DNR / redirect 類任務時，優先使
 ## 規則
 - `src/sites/**` 不得 import `src/epics/**`
 - 站點 parser 必須支援 MV3 background 可用的 no-DOM fallback
+- metadata fetcher 在 Observable unsubscribe 時必須中止尚未完成的 HTTP request，讓 background timeout 能釋放實際網路資源
 - 新增跨站來源時，同步評估 production/dev manifest 的 `host_permissions`
 - 需要 Referer / Cookie / header 修改時，優先用 DNR，不新增 content script 或 webRequest
 - 付費、失敗、timeout 與 retry 狀態要明確回到 reader 流程，不讓 UI 永久卡在 loading

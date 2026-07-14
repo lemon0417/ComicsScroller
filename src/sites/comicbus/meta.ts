@@ -1,7 +1,7 @@
 import type { ChapterRecord } from "@domain/library";
-import { from } from "rxjs";
 import { map as rxMap } from "rxjs/operators";
 
+import { fetchText$ } from "../http";
 import type { SiteMeta } from "../types";
 
 const baseURL = "http://www.comicbus.com";
@@ -121,7 +121,7 @@ const parseFromHtml = (html: string, comicsID: string) => {
 export function fetchMeta$(url: string) {
   const comicsID = extractComicsIDFromUrl(url);
 
-  return from(fetch(url).then((response) => response.text())).pipe(
+  return fetchText$(url, "ComicBus metadata").pipe(
     rxMap((html): SiteMeta => {
       const Parser = globalThis.DOMParser;
       if (Parser) {
