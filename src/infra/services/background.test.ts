@@ -132,6 +132,65 @@ describe("background service", () => {
     expect(listSubscriptionKeys).toHaveBeenCalledTimes(2);
   });
 
+  it.each([
+    ["an empty chapter list", { chapterList: [], chapters: {} }],
+    [
+      "duplicate chapter IDs",
+      {
+        chapterList: ["m1", "m1"],
+        chapters: {
+          m1: { title: "Ch 1", href: "https://www.dm5.com/m1/" },
+        },
+      },
+    ],
+    ["a missing chapter record", { chapterList: ["m1"], chapters: {} }],
+    [
+      "a chapter without an href",
+      {
+        chapterList: ["m1"],
+        chapters: { m1: { title: "Ch 1", href: "" } },
+      },
+    ],
+  ])("reports %s as invalid background metadata", async (_label, meta) => {
+    const applyBackgroundSeriesRefresh = jest.fn();
+    const markSubscriptionCheckedByKey = jest.fn();
+    const summary = await runBackgroundUpdateSummary(
+      {
+        applyBackgroundSeriesRefresh,
+        clearNotification: jest.fn(),
+        createNotification: jest.fn(),
+        getFetchChapterPage: jest.fn(() => () => of(meta as any)),
+        getManifestVersion: jest.fn(() => "4.0.99"),
+        getRuntimeUrl: jest.fn((path: string) => `chrome-extension:///${path}`),
+        getBackgroundSeriesState: jest.fn().mockResolvedValue({
+          url: "https://www.dm5.com/m123/",
+          cover: "cover.jpg",
+          latestChapterID: "m0",
+        }),
+        getUpdateCount: jest.fn().mockResolvedValue(0),
+        listSubscriptionKeys: jest.fn().mockResolvedValue(["dm5:m123"]),
+        markSubscriptionCheckedByKey,
+        openTab: jest.fn(),
+        parseSeriesKey: jest.fn(() => ({ site: "dm5", comicsID: "m123" })),
+        reconcileExtensionReleaseState: jest.fn(),
+        refreshExtensionReleaseState: jest.fn(),
+        resetLibrary: jest.fn(),
+        setBadge: jest.fn(),
+        setLibraryVersion: jest.fn(),
+      },
+      { now: () => 456 },
+    );
+
+    expect(summary).toEqual({
+      checked: 1,
+      updated: 0,
+      errors: 1,
+      diff: { before: 0, after: 0, added: 0 },
+    });
+    expect(applyBackgroundSeriesRefresh).not.toHaveBeenCalled();
+    expect(markSubscriptionCheckedByKey).toHaveBeenCalledWith("dm5:m123", 456);
+  });
+
   it("summarizes background updates and refreshes badge", async () => {
     const setBadge = jest.fn();
     const markSubscriptionCheckedByKey = jest.fn().mockResolvedValue(undefined);
@@ -292,7 +351,15 @@ describe("background service", () => {
         of({
           title: "Demo",
           chapterList: ["m3", "m2-backfill", "m2", "m1"],
-          chapters: {},
+          chapters: {
+            m1: { title: "Ch 1", href: "https://www.dm5.com/m1/" },
+            m2: { title: "Ch 2", href: "https://www.dm5.com/m2/" },
+            "m2-backfill": {
+              title: "Ch 2 extra",
+              href: "https://www.dm5.com/m2-backfill/",
+            },
+            m3: { title: "Ch 3", href: "https://www.dm5.com/m3/" },
+          },
         }),
       ),
       getManifestVersion: jest.fn(() => "4.0.99"),

@@ -159,6 +159,34 @@ function fetchLatestSiteMeta(
   );
 }
 
+function validateBackgroundSiteMeta(meta: SiteMeta) {
+  if (!Array.isArray(meta.chapterList) || meta.chapterList.length === 0) {
+    throw new Error("Background metadata did not include any chapters.");
+  }
+
+  const seenChapterIDs = new Set<string>();
+  for (const chapterID of meta.chapterList) {
+    if (
+      typeof chapterID !== "string" ||
+      !chapterID.trim() ||
+      chapterID !== chapterID.trim() ||
+      seenChapterIDs.has(chapterID)
+    ) {
+      throw new Error("Background metadata included an invalid chapter ID.");
+    }
+    seenChapterIDs.add(chapterID);
+
+    const chapter = meta.chapters?.[chapterID];
+    if (!chapter || typeof chapter.href !== "string" || !chapter.href.trim()) {
+      throw new Error(
+        `Background metadata did not include a usable chapter for ${chapterID}.`,
+      );
+    }
+  }
+
+  return meta;
+}
+
 async function runWithConcurrency<T, R>(
   items: T[],
   concurrency: number,
@@ -198,24 +226,24 @@ async function checkSubscribedSeries(
 
     shouldCountChecked = true;
 
-    const { title, chapterList, cover, chapters } = await fetchLatestSiteMeta(
-      site,
-      comic.url,
-      {
-        includeCover: !comic.cover,
-      },
-      deps.getFetchChapterPage,
-      options.timeoutMs,
+    const { title, chapterList, cover, chapters } = validateBackgroundSiteMeta(
+      await fetchLatestSiteMeta(
+        site,
+        comic.url,
+        {
+          includeCover: !comic.cover,
+        },
+        deps.getFetchChapterPage,
+        options.timeoutMs,
+      ),
     );
-    const normalizedChapterList = chapterList || [];
     const checkpointIndex = comic.latestChapterID
-      ? normalizedChapterList.indexOf(comic.latestChapterID)
+      ? chapterList.indexOf(comic.latestChapterID)
       : -1;
-    const shouldEstablishBaseline =
-      normalizedChapterList.length > 0 && checkpointIndex < 0;
+    const shouldEstablishBaseline = checkpointIndex < 0;
     const nextChapterIDs =
       checkpointIndex > 0
-        ? normalizedChapterList.slice(0, checkpointIndex)
+        ? chapterList.slice(0, checkpointIndex)
         : [];
 
     if (nextChapterIDs.length > 0 || shouldEstablishBaseline) {
