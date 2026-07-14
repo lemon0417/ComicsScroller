@@ -1,7 +1,4 @@
-import {
-  parseDm5ChapterPage,
-  resolveDm5ImageUrl,
-} from "@sites/dm5/chapter";
+import { parseDm5ChapterPage, resolveDm5ImageUrl } from "@sites/dm5/chapter";
 
 const PACKER_SAMPLE = String.raw`eval(function(p,a,c,k,e,d){e=function(c){return(c<a?"":e(parseInt(c/a)))+((c=c%a)>35?String.fromCharCode(c+29):c.toString(36))};if(!''.replace(/^/,String)){while(c--)d[e(c)]=k[c]||e(c);k=[function(e){return d[e]}];e=function(){return'\\w+'};c=1;};while(c--)if(k[c])p=p.replace(new RegExp('\\b'+e(c)+'\\b','g'),k[c]);return p;}('b 5(){1 4=3;1 9=\\'8\\';1 7=\"g://f.h.e/a/c/3\";1 2=[\"/j.6\",\"/m.6\"];n(1 i=0;i<2.k;i++){2[i]=7+2[i]+\\'?4=3&9=8\\'}l 2}1 d;d=5();',24,24,'|var|pvalue|1753397|cid|dm5imagefun|jpg|pix|49370fd6fd0f05ca510c4a1a4d389230|key|85|function|84472||com|manhua1040zjcdn123|https|cdndm5||1_4253|length|return|2_8730|for'.split('|'),0,{}))`;
 
@@ -74,6 +71,33 @@ describe("dm5 parser helpers", () => {
     );
   });
 
+  test("prefers the named HD image schema", () => {
+    const responseText =
+      "var hd_c=['/hd.jpg']; var d=['/standard.jpg']; " +
+      "var pix='https://example.com/85/84472/1753397';";
+    const resolved = resolveDm5ImageUrl(responseText, {
+      cid: "1753397",
+      key: "deadbeef",
+    });
+
+    expect(resolved).toBe(
+      "https://example.com/85/84472/1753397/hd.jpg?cid=1753397&key=deadbeef",
+    );
+  });
+
+  test("rejects unrecognized image response shapes", () => {
+    const responseText =
+      "var images=['/guessed.jpg']; " +
+      "var source='https://example.com/85/84472/1753397/direct.jpg';";
+
+    expect(
+      resolveDm5ImageUrl(responseText, {
+        cid: "1753397",
+        key: "deadbeef",
+      }),
+    ).toBe("");
+  });
+
   test("keeps chapterfun key empty and uses the response image key", () => {
     const html = `
       <html>
@@ -107,41 +131,38 @@ describe("dm5 parser helpers", () => {
     );
   });
 
-  test("falls back to raw HTML parsing when DOM parsing omits chapter vars", () => {
+  test("parses chapter metadata without using DOMParser", () => {
     const originalDOMParser = globalThis.DOMParser;
     try {
       globalThis.DOMParser = class DOMParser {
-        parseFromString() {
-          return {
-            documentElement: { textContent: "" },
-            querySelector: () => null,
-          } as unknown as Document;
+        parseFromString(): Document {
+          throw new Error("DOMParser should not be used");
         }
       } as typeof DOMParser;
 
       const html = `
-        <div class="title"><span></span><span><a href="/manhua-fallback/">Fallback</a></span></div>
-        <input id="dm5_key" value="fallback-key" />
+        <div class='chapter title'><span></span><span><a href='/manhua-string-parser/'>String parser</a></span></div>
+        <input id='dm5_key' value='fallback-key' />
         <script>
           var DM5_IMAGE_COUNT = 1;
-          var DM5_CID = "1753397";
-          var DM5_CURL = "/manhua-fallback/";
-          var DM5_MID = "12345";
-          var DM5_VIEWSIGN_DT = "2026-04-04 12:34:56";
-          var DM5_VIEWSIGN = "signed";
+          var DM5_CID = '1753397';
+          var DM5_CURL = '/m1753397/';
+          var DM5_MID = 12345;
+          var DM5_VIEWSIGN_DT = '2026-04-04 12:34:56';
+          var DM5_VIEWSIGN = 'signed';
         </script>
       `;
 
       expect(parseDm5ChapterPage(html, "m1753397")).toEqual({
         chapterID: "m1753397",
-        seriesSlug: "manhua-fallback",
+        seriesSlug: "manhua-string-parser",
         imgList: [
           expect.objectContaining({
             chapter: "m1753397",
             cid: "1753397",
             key: "fallback-key",
             src: expect.stringContaining(
-              "https://www.dm5.com/manhua-fallback/chapterfun.ashx?cid=1753397&page=1",
+              "https://www.dm5.com/m1753397/chapterfun.ashx?cid=1753397&page=1",
             ),
           }),
         ],
@@ -181,9 +202,12 @@ describe("dm5 parser helpers", () => {
     });
   });
 
-  test("throws when both DM5 chapter parsers fail to produce a usable payload", () => {
+  test("throws when the DM5 chapter parser cannot produce a usable payload", () => {
     expect(() =>
-      parseDm5ChapterPage("<html><body><div>broken</div></body></html>", "m404"),
+      parseDm5ChapterPage(
+        "<html><body><div>broken</div></body></html>",
+        "m404",
+      ),
     ).toThrow("Unable to parse DM5 chapter metadata for m404.");
   });
 });

@@ -94,11 +94,6 @@ const extractArrayVar = (script: string, name: string) => {
   return match ? parseArrayLiteral(match[1]) : null;
 };
 
-const extractAnyArray = (script: string) => {
-  const match = /(\[[\s\S]*?\])/.exec(script);
-  return match ? parseArrayLiteral(match[1]) : null;
-};
-
 const extractFirstUrl = (script: string) => {
   const match =
     /https?:\\\/\\\/[^"'\\s]+/.exec(script) ||
@@ -134,18 +129,12 @@ export function resolveDm5ImageUrl(
   responseText: string,
   entityItem?: { cid?: string; key?: string },
 ) {
-  const scriptText = unpackPacker(responseText) || responseText;
+  const scriptText = unpackPacker(responseText);
   const hd = extractArrayVar(scriptText, "hd_c");
   const dArr = extractArrayVar(scriptText, "d");
   const pvalue = extractArrayVar(scriptText, "pvalue");
-  const arr = extractAnyArray(scriptText);
   const candidate =
-    (hd && hd[0]) ||
-    (dArr && dArr[0]) ||
-    (pvalue && pvalue[0]) ||
-    (arr && arr[0]) ||
-    extractFirstUrl(scriptText) ||
-    "";
+    (hd && hd[0]) || (dArr && dArr[0]) || (pvalue && pvalue[0]) || "";
   const baseUrl = extractFirstUrl(scriptText);
   const queryMatch = /\\?cid=\d+&key=[0-9a-z]+/i.exec(scriptText);
   const cidMatch = /cid\s*=\s*(\d+)/.exec(scriptText);

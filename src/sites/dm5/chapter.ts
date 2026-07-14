@@ -26,36 +26,9 @@ const extractScriptVar = (script: string, name: string) => {
   return (value || "").trim();
 };
 
-const parseDomChapterPage = (html: string, chapterID: string) => {
-  const Parser = globalThis.DOMParser;
-  if (!Parser) return null;
-
-  const doc = new Parser().parseFromString(html, "text/html");
-  const anchor = doc.querySelector(
-    "div.title > span:nth-child(2) > a",
-  ) as HTMLAnchorElement | null;
-  const scriptText = doc.documentElement?.textContent ?? "";
-  const dm5Key =
-    extractScriptVar(scriptText, "DM5_KEY") ||
-    (doc.querySelector("#dm5_key") as HTMLInputElement | null)?.value ||
-    "";
-  const paywalled = Boolean(
-    doc.querySelector("#view-chapterpay-btn") ||
-      doc.querySelector(".view-pay-btn"),
-  );
-
-  return buildChapterPageMeta(
-    chapterID,
-    scriptText,
-    anchor?.getAttribute("href") || "",
-    dm5Key,
-    paywalled,
-  );
-};
-
 const parseHtmlChapterPage = (html: string, chapterID: string) => {
   const anchorMatch =
-    /<div[^>]*class="title"[\s\S]*?<span[^>]*>\s*<a[^>]*href="([^"]+)"/i.exec(
+    /<div\b[^>]*class\s*=\s*["'][^"']*\btitle\b[^"']*["'][^>]*>[\s\S]*?<a\b[^>]*href\s*=\s*["']([^"']+)["']/i.exec(
       html,
     );
   return buildChapterPageMeta(
@@ -82,8 +55,7 @@ const buildDm5PaywallHref = (chapterID: string) => {
 };
 
 const parseSeriesSlug = (comicHref: string, curlRaw: string) =>
-  comicHref.replace(/^\/+|\/+$/g, "") ||
-  curlRaw.replace(/^\/+|\/+$/g, "");
+  comicHref.replace(/^\/+|\/+$/g, "") || curlRaw.replace(/^\/+|\/+$/g, "");
 
 function buildChapterPageMeta(
   chapterID: string,
@@ -92,7 +64,8 @@ function buildChapterPageMeta(
   dm5KeyFallback: string,
   paywalled: boolean,
 ): Dm5ChapterPageMeta {
-  const imageCount = parseInt(extractScriptVar(scriptText, "DM5_IMAGE_COUNT"), 10) || 0;
+  const imageCount =
+    parseInt(extractScriptVar(scriptText, "DM5_IMAGE_COUNT"), 10) || 0;
   const cid = extractScriptVar(scriptText, "DM5_CID");
   const curlRaw = extractScriptVar(scriptText, "DM5_CURL");
   const curl = `${curlRaw.replace(/^\/+/, "").replace(/\/+$/, "")}/`;
@@ -154,7 +127,7 @@ function hasValidChapterPageMeta(meta: Dm5ChapterPageMeta) {
 }
 
 function assertValidChapterPageMeta(
-  meta: Dm5ChapterPageMeta | null,
+  meta: Dm5ChapterPageMeta,
   chapterID: string,
 ) {
   if (meta && hasValidChapterPageMeta(meta)) {
@@ -167,13 +140,8 @@ export function parseDm5ChapterPage(
   html: string,
   chapterID: string,
 ): Dm5ChapterPageMeta {
-  const domMeta = parseDomChapterPage(html, chapterID);
-  if (domMeta) {
-    try {
-      return assertValidChapterPageMeta(domMeta, chapterID);
-    } catch {
-      // Fall through to the string parser when DOM extraction is incomplete.
-    }
-  }
-  return assertValidChapterPageMeta(parseHtmlChapterPage(html, chapterID), chapterID);
+  return assertValidChapterPageMeta(
+    parseHtmlChapterPage(html, chapterID),
+    chapterID,
+  );
 }
