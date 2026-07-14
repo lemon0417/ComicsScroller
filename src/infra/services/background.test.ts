@@ -29,13 +29,44 @@ function createRefreshCandidate(
   };
 }
 
+type TestBackgroundDeps = NonNullable<
+  Parameters<typeof runBackgroundUpdateSummary>[0]
+>;
+
+function createBackgroundDeps(
+  overrides: Partial<TestBackgroundDeps> = {},
+): TestBackgroundDeps {
+  return {
+    applyBackgroundSeriesRefresh: jest.fn(),
+    clearNotification: jest.fn(),
+    createNotification: jest.fn(),
+    getFetchChapters: jest.fn(),
+    getManifestVersion: jest.fn(() => "4.0.99"),
+    getRuntimeUrl: jest.fn((path: string) => `chrome-extension:///${path}`),
+    getUpdateCount: jest.fn().mockResolvedValue(0),
+    listBackgroundRefreshCandidates: jest.fn().mockResolvedValue([]),
+    markSubscriptionCheckedByKey: jest.fn(),
+    openTab: jest.fn(),
+    reconcileExtensionReleaseState: jest.fn(),
+    refreshExtensionReleaseState: jest.fn(),
+    resetLibrary: jest.fn(),
+    setBadge: jest.fn(),
+    setLibraryVersion: jest.fn(),
+    withBatchedLibrarySignals: async (run) => run(),
+    ...overrides,
+  };
+}
+
 describe("background service", () => {
   it("preserves existing background alarm schedules", async () => {
     const createAlarm = jest.fn();
-    const getAlarm = jest.fn(async (name: string) => ({
-      name,
-      scheduledTime: 999,
-    }) as chrome.alarms.Alarm);
+    const getAlarm = jest.fn(
+      async (name: string) =>
+        ({
+          name,
+          scheduledTime: 999,
+        }) as chrome.alarms.Alarm,
+    );
 
     await ensureBackgroundAlarms({ createAlarm, getAlarm }, () => 123);
 
@@ -71,23 +102,9 @@ describe("background service", () => {
       resolveCandidates = resolve;
     });
     const listBackgroundRefreshCandidates = jest.fn(() => candidatesPromise);
-    const deps = {
-      applyBackgroundSeriesRefresh: jest.fn(),
-      clearNotification: jest.fn(),
-      createNotification: jest.fn(),
-      getFetchChapters: jest.fn(),
-      getManifestVersion: jest.fn(() => "4.0.99"),
-      getRuntimeUrl: jest.fn((path: string) => `chrome-extension:///${path}`),
-      getUpdateCount: jest.fn().mockResolvedValue(0),
+    const deps = createBackgroundDeps({
       listBackgroundRefreshCandidates,
-      markSubscriptionCheckedByKey: jest.fn(),
-      openTab: jest.fn(),
-      reconcileExtensionReleaseState: jest.fn(),
-      refreshExtensionReleaseState: jest.fn(),
-      resetLibrary: jest.fn(),
-      setBadge: jest.fn(),
-      setLibraryVersion: jest.fn(),
-    };
+    });
 
     const firstRun = runBackgroundUpdateSummary(deps);
     const overlappingRun = runBackgroundUpdateSummary(deps);
@@ -117,23 +134,9 @@ describe("background service", () => {
       .fn()
       .mockRejectedValueOnce(new Error("temporary failure"))
       .mockResolvedValueOnce([]);
-    const deps = {
-      applyBackgroundSeriesRefresh: jest.fn(),
-      clearNotification: jest.fn(),
-      createNotification: jest.fn(),
-      getFetchChapters: jest.fn(),
-      getManifestVersion: jest.fn(() => "4.0.99"),
-      getRuntimeUrl: jest.fn((path: string) => `chrome-extension:///${path}`),
-      getUpdateCount: jest.fn().mockResolvedValue(0),
+    const deps = createBackgroundDeps({
       listBackgroundRefreshCandidates,
-      markSubscriptionCheckedByKey: jest.fn(),
-      openTab: jest.fn(),
-      reconcileExtensionReleaseState: jest.fn(),
-      refreshExtensionReleaseState: jest.fn(),
-      resetLibrary: jest.fn(),
-      setBadge: jest.fn(),
-      setLibraryVersion: jest.fn(),
-    };
+    });
 
     await expect(runBackgroundUpdateSummary(deps)).rejects.toThrow(
       "temporary failure",
@@ -170,29 +173,20 @@ describe("background service", () => {
     const applyBackgroundSeriesRefresh = jest.fn();
     const markSubscriptionCheckedByKey = jest.fn();
     const summary = await runBackgroundUpdateSummary(
-      {
+      createBackgroundDeps({
         applyBackgroundSeriesRefresh,
-        clearNotification: jest.fn(),
-        createNotification: jest.fn(),
         getFetchChapters: jest.fn(() => () => of(meta as any)),
-        getManifestVersion: jest.fn(() => "4.0.99"),
-        getRuntimeUrl: jest.fn((path: string) => `chrome-extension:///${path}`),
-        getUpdateCount: jest.fn().mockResolvedValue(0),
-        listBackgroundRefreshCandidates: jest.fn().mockResolvedValue([
-          createRefreshCandidate(
-            "dm5:m123",
-            "https://www.dm5.com/m123/",
-            "m0",
-          ),
-        ]),
+        listBackgroundRefreshCandidates: jest
+          .fn()
+          .mockResolvedValue([
+            createRefreshCandidate(
+              "dm5:m123",
+              "https://www.dm5.com/m123/",
+              "m0",
+            ),
+          ]),
         markSubscriptionCheckedByKey,
-        openTab: jest.fn(),
-        reconcileExtensionReleaseState: jest.fn(),
-        refreshExtensionReleaseState: jest.fn(),
-        resetLibrary: jest.fn(),
-        setBadge: jest.fn(),
-        setLibraryVersion: jest.fn(),
-      },
+      }),
       { now: () => 456 },
     );
 
@@ -223,38 +217,34 @@ describe("background service", () => {
       }),
     );
 
-    const summary = await runBackgroundUpdateSummary({
-      applyBackgroundSeriesRefresh,
-      clearNotification: jest.fn(),
-      createNotification: jest.fn(),
-      getFetchChapters: jest.fn(() => fetchChapters),
-      getManifestVersion: jest.fn(() => "4.0.99"),
-      getRuntimeUrl: jest.fn((path: string) => `chrome-extension:///${path}`),
-      getUpdateCount: jest
-        .fn()
-        .mockResolvedValueOnce(1)
-        .mockResolvedValueOnce(2),
-      listBackgroundRefreshCandidates: jest.fn().mockResolvedValue([
-        createRefreshCandidate(
-          "dm5:m123",
-          "https://www.dm5.com/m123/",
-          "m1",
-        ),
-      ]),
-      markSubscriptionCheckedByKey,
-      openTab: jest.fn(),
-      reconcileExtensionReleaseState: jest.fn(),
-      refreshExtensionReleaseState: jest.fn(),
-      resetLibrary: jest.fn(),
-      setBadge,
-      setLibraryVersion: jest.fn(),
-      withBatchedLibrarySignals,
-    }, {
-      batchSize: 12,
-      concurrency: 2,
-      timeoutMs: 3000,
-      now: () => 12345,
-    });
+    const summary = await runBackgroundUpdateSummary(
+      createBackgroundDeps({
+        applyBackgroundSeriesRefresh,
+        getFetchChapters: jest.fn(() => fetchChapters),
+        getUpdateCount: jest
+          .fn()
+          .mockResolvedValueOnce(1)
+          .mockResolvedValueOnce(2),
+        listBackgroundRefreshCandidates: jest
+          .fn()
+          .mockResolvedValue([
+            createRefreshCandidate(
+              "dm5:m123",
+              "https://www.dm5.com/m123/",
+              "m1",
+            ),
+          ]),
+        markSubscriptionCheckedByKey,
+        setBadge,
+        withBatchedLibrarySignals,
+      }),
+      {
+        batchSize: 12,
+        concurrency: 2,
+        timeoutMs: 3000,
+        now: () => 12345,
+      },
+    );
 
     expect(summary).toEqual({
       checked: 1,
@@ -298,30 +288,22 @@ describe("background service", () => {
         },
       }),
     );
-    const summary = await runBackgroundUpdateSummary({
-      applyBackgroundSeriesRefresh,
-      clearNotification: jest.fn(),
-      createNotification: jest.fn(),
-      getFetchChapters: jest.fn(() => fetchChapters),
-      getManifestVersion: jest.fn(() => "4.0.99"),
-      getRuntimeUrl: jest.fn((path: string) => `chrome-extension:///${path}`),
-      getUpdateCount: jest.fn().mockResolvedValue(0),
-      listBackgroundRefreshCandidates: jest.fn().mockResolvedValue([
-        createRefreshCandidate("dm5:empty", "https://www.dm5.com/empty/"),
-        createRefreshCandidate(
-          "dm5:missing",
-          "https://www.dm5.com/missing/",
-          "m404",
-        ),
-      ]),
-      markSubscriptionCheckedByKey: jest.fn(),
-      openTab: jest.fn(),
-      reconcileExtensionReleaseState: jest.fn(),
-      refreshExtensionReleaseState: jest.fn(),
-      resetLibrary: jest.fn(),
-      setBadge: jest.fn(),
-      setLibraryVersion: jest.fn(),
-    });
+    const summary = await runBackgroundUpdateSummary(
+      createBackgroundDeps({
+        applyBackgroundSeriesRefresh,
+        getFetchChapters: jest.fn(() => fetchChapters),
+        listBackgroundRefreshCandidates: jest
+          .fn()
+          .mockResolvedValue([
+            createRefreshCandidate("dm5:empty", "https://www.dm5.com/empty/"),
+            createRefreshCandidate(
+              "dm5:missing",
+              "https://www.dm5.com/missing/",
+              "m404",
+            ),
+          ]),
+      }),
+    );
 
     expect(summary.updated).toBe(0);
     expect(applyBackgroundSeriesRefresh).toHaveBeenCalledTimes(2);
@@ -341,42 +323,35 @@ describe("background service", () => {
 
   it("refreshes backfilled chapters without reporting them as updates", async () => {
     const applyBackgroundSeriesRefresh = jest.fn();
-    const summary = await runBackgroundUpdateSummary({
-      applyBackgroundSeriesRefresh,
-      clearNotification: jest.fn(),
-      createNotification: jest.fn(),
-      getFetchChapters: jest.fn(() => () =>
-        of({
-          chapterList: ["m3", "m2-backfill", "m2", "m1"],
-          chapters: {
-            m1: { title: "Ch 1", href: "https://www.dm5.com/m1/" },
-            m2: { title: "Ch 2", href: "https://www.dm5.com/m2/" },
-            "m2-backfill": {
-              title: "Ch 2 extra",
-              href: "https://www.dm5.com/m2-backfill/",
-            },
-            m3: { title: "Ch 3", href: "https://www.dm5.com/m3/" },
-          },
-        }),
-      ),
-      getManifestVersion: jest.fn(() => "4.0.99"),
-      getRuntimeUrl: jest.fn((path: string) => `chrome-extension:///${path}`),
-      getUpdateCount: jest.fn().mockResolvedValue(0),
-      listBackgroundRefreshCandidates: jest.fn().mockResolvedValue([
-        createRefreshCandidate(
-          "dm5:m123",
-          "https://www.dm5.com/m123/",
-          "m3",
+    const summary = await runBackgroundUpdateSummary(
+      createBackgroundDeps({
+        applyBackgroundSeriesRefresh,
+        getFetchChapters: jest.fn(
+          () => () =>
+            of({
+              chapterList: ["m3", "m2-backfill", "m2", "m1"],
+              chapters: {
+                m1: { title: "Ch 1", href: "https://www.dm5.com/m1/" },
+                m2: { title: "Ch 2", href: "https://www.dm5.com/m2/" },
+                "m2-backfill": {
+                  title: "Ch 2 extra",
+                  href: "https://www.dm5.com/m2-backfill/",
+                },
+                m3: { title: "Ch 3", href: "https://www.dm5.com/m3/" },
+              },
+            }),
         ),
-      ]),
-      markSubscriptionCheckedByKey: jest.fn(),
-      openTab: jest.fn(),
-      reconcileExtensionReleaseState: jest.fn(),
-      refreshExtensionReleaseState: jest.fn(),
-      resetLibrary: jest.fn(),
-      setBadge: jest.fn(),
-      setLibraryVersion: jest.fn(),
-    });
+        listBackgroundRefreshCandidates: jest
+          .fn()
+          .mockResolvedValue([
+            createRefreshCandidate(
+              "dm5:m123",
+              "https://www.dm5.com/m123/",
+              "m3",
+            ),
+          ]),
+      }),
+    );
 
     expect(summary.updated).toBe(0);
     expect(applyBackgroundSeriesRefresh).toHaveBeenCalledWith(
@@ -407,36 +382,28 @@ describe("background service", () => {
     });
 
     const summary = await runBackgroundUpdateSummary(
-      {
+      createBackgroundDeps({
         applyBackgroundSeriesRefresh,
-        clearNotification: jest.fn(),
-        createNotification: jest.fn(),
         getFetchChapters: jest.fn(() => fetchChapters),
-        getManifestVersion: jest.fn(() => "4.0.99"),
-        getRuntimeUrl: jest.fn((path: string) => `chrome-extension:///${path}`),
         getUpdateCount: jest
           .fn()
           .mockResolvedValueOnce(0)
           .mockResolvedValueOnce(1),
-        listBackgroundRefreshCandidates: jest.fn().mockResolvedValue([
-          createRefreshCandidate(
-            "dm5:m-stuck",
-            "https://www.dm5.com/m-stuck/",
-          ),
-          createRefreshCandidate(
-            "dm5:m-ok",
-            "https://www.dm5.com/m-ok/",
-            "m1",
-          ),
-        ]),
+        listBackgroundRefreshCandidates: jest
+          .fn()
+          .mockResolvedValue([
+            createRefreshCandidate(
+              "dm5:m-stuck",
+              "https://www.dm5.com/m-stuck/",
+            ),
+            createRefreshCandidate(
+              "dm5:m-ok",
+              "https://www.dm5.com/m-ok/",
+              "m1",
+            ),
+          ]),
         markSubscriptionCheckedByKey,
-        openTab: jest.fn(),
-        reconcileExtensionReleaseState: jest.fn(),
-        refreshExtensionReleaseState: jest.fn(),
-        resetLibrary: jest.fn(),
-        setBadge: jest.fn(),
-        setLibraryVersion: jest.fn(),
-      },
+      }),
       {
         batchSize: 10,
         concurrency: 2,
@@ -473,23 +440,12 @@ describe("background service", () => {
     const setLibraryVersion = jest.fn();
     const reconcileExtensionReleaseState = jest.fn();
     const createNotification = jest.fn();
-    const deps = {
-      applyBackgroundSeriesRefresh: jest.fn(),
-      clearNotification: jest.fn(),
+    const deps = createBackgroundDeps({
       createNotification,
-      getFetchChapters: jest.fn(),
-      getManifestVersion: jest.fn(() => "4.0.99"),
-      getRuntimeUrl: jest.fn((path: string) => `chrome-extension:///${path}`),
-      getUpdateCount: jest.fn(),
-      listBackgroundRefreshCandidates: jest.fn(),
-      markSubscriptionCheckedByKey: jest.fn(),
-      openTab: jest.fn(),
       reconcileExtensionReleaseState,
-      refreshExtensionReleaseState: jest.fn(),
       resetLibrary,
-      setBadge: jest.fn(),
       setLibraryVersion,
-    };
+    });
 
     await handleExtensionInstalled({ reason: "install" }, deps);
     await handleExtensionInstalled({ reason: "update" }, deps);
@@ -509,18 +465,9 @@ describe("background service", () => {
     const createNotification = jest.fn();
 
     const summary = await runBackgroundReleaseCheck(
-      {
-        applyBackgroundSeriesRefresh: jest.fn(),
-        clearNotification: jest.fn(),
+      createBackgroundDeps({
         createNotification,
-        getFetchChapters: jest.fn(),
         getManifestVersion: jest.fn(() => "4.1.0"),
-        getRuntimeUrl: jest.fn((path: string) => `chrome-extension:///${path}`),
-        getUpdateCount: jest.fn(),
-        listBackgroundRefreshCandidates: jest.fn(),
-        markSubscriptionCheckedByKey: jest.fn(),
-        openTab: jest.fn(),
-        reconcileExtensionReleaseState: jest.fn(),
         refreshExtensionReleaseState: jest.fn().mockResolvedValue({
           checkedAt: 123,
           latest: {
@@ -539,10 +486,7 @@ describe("background service", () => {
           },
           shouldNotify: true,
         }),
-        resetLibrary: jest.fn(),
-        setBadge: jest.fn(),
-        setLibraryVersion: jest.fn(),
-      },
+      }),
       { now: () => 123 },
     );
 

@@ -14,10 +14,7 @@ import {
   withBatchedLibrarySignals,
 } from "@infra/services/library/background";
 import { getSiteChapterFetcher } from "@sites/registry";
-import type {
-  SiteChapterFetcher,
-  SiteChapterSnapshot,
-} from "@sites/types";
+import type { SiteChapterFetcher, SiteChapterSnapshot } from "@sites/types";
 import { firstValueFrom, timeout } from "rxjs";
 
 const sfRegex = /http\:\/\/comic\.sfacg\.com\/(HTML\/[^\/]+\/.+)$/;
@@ -59,7 +56,7 @@ type BackgroundServiceDeps = {
   resetLibrary: typeof resetLibrary;
   setBadge: (count: number) => void;
   setLibraryVersion: typeof setLibraryVersion;
-  withBatchedLibrarySignals?: typeof withBatchedLibrarySignals;
+  withBatchedLibrarySignals: typeof withBatchedLibrarySignals;
 };
 
 type BackgroundSummary = {
@@ -126,7 +123,8 @@ function getDefaultDeps(): BackgroundServiceDeps {
   return {
     applyBackgroundSeriesRefresh,
     clearNotification: (id) => chrome.notifications.clear(id),
-    createNotification: (id, options) => chrome.notifications.create(id, options),
+    createNotification: (id, options) =>
+      chrome.notifications.create(id, options),
     getFetchChapters: getSiteChapterFetcher,
     getManifestVersion: () => chrome.runtime.getManifest().version,
     getRuntimeUrl: (path) => chrome.runtime.getURL(path),
@@ -154,13 +152,14 @@ function fetchLatestChapterSnapshot(
     return Promise.reject(new Error(`No chapter adapter for site ${site}.`));
   }
 
-  return firstValueFrom(
-    fetchChapters(url).pipe(timeout({ first: timeoutMs })),
-  );
+  return firstValueFrom(fetchChapters(url).pipe(timeout({ first: timeoutMs })));
 }
 
 function validateBackgroundChapterSnapshot(snapshot: SiteChapterSnapshot) {
-  if (!Array.isArray(snapshot.chapterList) || snapshot.chapterList.length === 0) {
+  if (
+    !Array.isArray(snapshot.chapterList) ||
+    snapshot.chapterList.length === 0
+  ) {
     throw new Error("Background metadata did not include any chapters.");
   }
 
@@ -192,7 +191,10 @@ async function runWithConcurrency<T, R>(
   concurrency: number,
   worker: (item: T) => Promise<R>,
 ): Promise<R[]> {
-  const poolSize = Math.max(1, Math.min(Math.floor(concurrency) || 1, items.length || 1));
+  const poolSize = Math.max(
+    1,
+    Math.min(Math.floor(concurrency) || 1, items.length || 1),
+  );
   const results: R[] = new Array(items.length);
   let nextIndex = 0;
 
@@ -236,9 +238,7 @@ async function checkSubscribedSeries(
       ? chapterList.indexOf(latestChapterID)
       : -1;
     const nextChapterIDs =
-      checkpointIndex > 0
-        ? chapterList.slice(0, checkpointIndex)
-        : [];
+      checkpointIndex > 0 ? chapterList.slice(0, checkpointIndex) : [];
 
     await deps.applyBackgroundSeriesRefresh(
       site,
@@ -294,12 +294,9 @@ async function executeBackgroundUpdateSummary(
     deps.listBackgroundRefreshCandidates(normalizedOptions.batchSize),
     deps.getUpdateCount(),
   ]);
-  const batchSignals = deps.withBatchedLibrarySignals || ((run) => run());
-  const results = await batchSignals(() =>
-    runWithConcurrency(
-      candidates,
-      normalizedOptions.concurrency,
-      (candidate) => checkSubscribedSeries(candidate, deps, normalizedOptions),
+  const results = await deps.withBatchedLibrarySignals(() =>
+    runWithConcurrency(candidates, normalizedOptions.concurrency, (candidate) =>
+      checkSubscribedSeries(candidate, deps, normalizedOptions),
     ),
   );
 
@@ -398,7 +395,10 @@ export async function runBackgroundReleaseCheck(
 
 export function handleNotificationClick(
   id: string,
-  deps: Pick<BackgroundServiceDeps, "openTab" | "clearNotification"> = getDefaultDeps(),
+  deps: Pick<
+    BackgroundServiceDeps,
+    "openTab" | "clearNotification"
+  > = getDefaultDeps(),
 ) {
   if (id !== UPDATE_NOTIFICATION_ID) {
     deps.openTab({ url: id });
@@ -430,7 +430,8 @@ export function handlePingBackgroundMessage(
   }
 
   const now = options.now || (() => Date.now());
-  const runSummary = options.runBackgroundUpdateSummary || runBackgroundUpdateSummary;
+  const runSummary =
+    options.runBackgroundUpdateSummary || runBackgroundUpdateSummary;
   runSummary()
     .then((summary) => {
       sendResponse({ ok: true, at: now(), summary });
@@ -441,7 +442,10 @@ export function handlePingBackgroundMessage(
   return true;
 }
 
-export function resolveReaderRedirect(url: string, getRuntimeUrl = (path: string) => chrome.runtime.getURL(path)) {
+export function resolveReaderRedirect(
+  url: string,
+  getRuntimeUrl = (path: string) => chrome.runtime.getURL(path),
+) {
   let parsedUrl: URL | null = null;
   try {
     parsedUrl = new URL(url);
@@ -467,7 +471,8 @@ export function resolveReaderRedirect(url: string, getRuntimeUrl = (path: string
   }
 
   const isDm5Host =
-    parsedUrl.hostname === "www.dm5.com" || parsedUrl.hostname === "tel.dm5.com";
+    parsedUrl.hostname === "www.dm5.com" ||
+    parsedUrl.hostname === "tel.dm5.com";
   const dm5PathMatch = /^\/(m\d+)\/?$/.exec(parsedUrl.pathname);
   if (isDm5Host && dm5PathMatch) {
     return `${getRuntimeUrl("app.html")}?site=dm5&chapter=${dm5PathMatch[1]}`;
