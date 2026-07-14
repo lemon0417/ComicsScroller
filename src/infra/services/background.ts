@@ -84,6 +84,8 @@ type BackgroundReleaseSummary = {
   notified: boolean;
 };
 
+let backgroundUpdateInFlight: Promise<BackgroundSummary> | null = null;
+
 function getDefaultAlarmDeps(): BackgroundAlarmDeps {
   return {
     createAlarm: (name, alarmInfo) => chrome.alarms.create(name, alarmInfo),
@@ -251,7 +253,7 @@ function setExtensionBadge(count: number) {
   chrome.action.setBadgeText({ text: `${count > 0 ? count : ""}` });
 }
 
-export async function runBackgroundUpdateSummary(
+async function executeBackgroundUpdateSummary(
   deps: BackgroundServiceDeps = getDefaultDeps(),
   options: BackgroundUpdateOptions = {},
 ): Promise<BackgroundSummary> {
@@ -296,6 +298,25 @@ export async function runBackgroundUpdateSummary(
       added: Math.max(0, afterCount - beforeCount),
     },
   };
+}
+
+export function runBackgroundUpdateSummary(
+  deps: BackgroundServiceDeps = getDefaultDeps(),
+  options: BackgroundUpdateOptions = {},
+): Promise<BackgroundSummary> {
+  if (backgroundUpdateInFlight) {
+    return backgroundUpdateInFlight;
+  }
+
+  const trackedPromise = executeBackgroundUpdateSummary(deps, options).finally(
+    () => {
+      if (backgroundUpdateInFlight === trackedPromise) {
+        backgroundUpdateInFlight = null;
+      }
+    },
+  );
+  backgroundUpdateInFlight = trackedPromise;
+  return trackedPromise;
 }
 
 export async function handleExtensionInstalled(

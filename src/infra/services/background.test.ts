@@ -46,6 +46,92 @@ describe("background service", () => {
     });
   });
 
+  it("shares an active background update across concurrent callers", async () => {
+    let resolveSubscriptions: (seriesKeys: string[]) => void = () => undefined;
+    const subscriptionsPromise = new Promise<string[]>((resolve) => {
+      resolveSubscriptions = resolve;
+    });
+    const listSubscriptionKeys = jest.fn(() => subscriptionsPromise);
+    const deps = {
+      applyBackgroundSeriesRefresh: jest.fn(),
+      clearNotification: jest.fn(),
+      createNotification: jest.fn(),
+      getFetchChapterPage: jest.fn(),
+      getManifestVersion: jest.fn(() => "4.0.99"),
+      getRuntimeUrl: jest.fn((path: string) => `chrome-extension:///${path}`),
+      getBackgroundSeriesState: jest.fn(),
+      getUpdateCount: jest.fn().mockResolvedValue(0),
+      listSubscriptionKeys,
+      markSubscriptionCheckedByKey: jest.fn(),
+      openTab: jest.fn(),
+      parseSeriesKey: jest.fn(),
+      reconcileExtensionReleaseState: jest.fn(),
+      refreshExtensionReleaseState: jest.fn(),
+      resetLibrary: jest.fn(),
+      setBadge: jest.fn(),
+      setLibraryVersion: jest.fn(),
+    };
+
+    const firstRun = runBackgroundUpdateSummary(deps);
+    const overlappingRun = runBackgroundUpdateSummary(deps);
+
+    expect(overlappingRun).toBe(firstRun);
+    expect(listSubscriptionKeys).toHaveBeenCalledTimes(1);
+
+    resolveSubscriptions([]);
+    await expect(Promise.all([firstRun, overlappingRun])).resolves.toEqual([
+      {
+        checked: 0,
+        updated: 0,
+        errors: 0,
+        diff: { before: 0, after: 0, added: 0 },
+      },
+      {
+        checked: 0,
+        updated: 0,
+        errors: 0,
+        diff: { before: 0, after: 0, added: 0 },
+      },
+    ]);
+  });
+
+  it("allows a background update retry after the active run fails", async () => {
+    const listSubscriptionKeys = jest
+      .fn()
+      .mockRejectedValueOnce(new Error("temporary failure"))
+      .mockResolvedValueOnce([]);
+    const deps = {
+      applyBackgroundSeriesRefresh: jest.fn(),
+      clearNotification: jest.fn(),
+      createNotification: jest.fn(),
+      getFetchChapterPage: jest.fn(),
+      getManifestVersion: jest.fn(() => "4.0.99"),
+      getRuntimeUrl: jest.fn((path: string) => `chrome-extension:///${path}`),
+      getBackgroundSeriesState: jest.fn(),
+      getUpdateCount: jest.fn().mockResolvedValue(0),
+      listSubscriptionKeys,
+      markSubscriptionCheckedByKey: jest.fn(),
+      openTab: jest.fn(),
+      parseSeriesKey: jest.fn(),
+      reconcileExtensionReleaseState: jest.fn(),
+      refreshExtensionReleaseState: jest.fn(),
+      resetLibrary: jest.fn(),
+      setBadge: jest.fn(),
+      setLibraryVersion: jest.fn(),
+    };
+
+    await expect(runBackgroundUpdateSummary(deps)).rejects.toThrow(
+      "temporary failure",
+    );
+    await expect(runBackgroundUpdateSummary(deps)).resolves.toEqual({
+      checked: 0,
+      updated: 0,
+      errors: 0,
+      diff: { before: 0, after: 0, added: 0 },
+    });
+    expect(listSubscriptionKeys).toHaveBeenCalledTimes(2);
+  });
+
   it("summarizes background updates and refreshes badge", async () => {
     const setBadge = jest.fn();
     const markSubscriptionCheckedByKey = jest.fn().mockResolvedValue(undefined);

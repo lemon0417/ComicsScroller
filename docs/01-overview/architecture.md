@@ -142,6 +142,7 @@ UI → Actions → Epics → Services → IndexedDB/Network → Actions
 - Background：
   - `src/background.ts` 只保留 MV3 listener wiring
   - service worker 每次喚醒只補建不存在的 alarm，不得重設既有 refresh / release 排程
+  - alarm 與 dev ping 若同時觸發 background refresh，必須共用同一個 in-flight summary；結束後才允許下一輪執行
   - listener wiring 必須收斂非同步 rejection；需要保持 message channel 的 handler 在成功與失敗時都必須回覆
   - 更新檢查、安裝處理、通知點擊、ping 回應、reader redirect 解析集中在 `src/infra/services/background.ts`
   - 訂閱更新檢查會依 `subscriptions.checkedAt` 由舊到新取批次輪詢
