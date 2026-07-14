@@ -26,15 +26,25 @@ const extractScriptVar = (script: string, name: string) => {
   return (value || "").trim();
 };
 
-const parseHtmlChapterPage = (html: string, chapterID: string) => {
-  const anchorMatch =
-    /<div\b[^>]*class\s*=\s*["'][^"']*\btitle\b[^"']*["'][^>]*>[\s\S]*?<a\b[^>]*href\s*=\s*["']([^"']+)["']/i.exec(
+const extractSeriesHref = (html: string) => {
+  const titleBlockMatch =
+    /<div\b[^>]*class\s*=\s*["'][^"']*\btitle\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i.exec(
       html,
     );
+  if (!titleBlockMatch) return "";
+
+  const seriesAnchorMatch =
+    /<a\b[^>]*href\s*=\s*(["'])(\/manhua-[^"']+\/?)\1/i.exec(
+      titleBlockMatch[1],
+    );
+  return seriesAnchorMatch ? seriesAnchorMatch[2] : "";
+};
+
+const parseHtmlChapterPage = (html: string, chapterID: string) => {
   return buildChapterPageMeta(
     chapterID,
     html,
-    anchorMatch ? anchorMatch[1] : "",
+    extractSeriesHref(html),
     extractDm5InputKey(html),
     /id=["']view-chapterpay-btn["']|class=["'][^"']*view-pay-btn/i.test(html),
   );
@@ -54,8 +64,18 @@ const buildDm5PaywallHref = (chapterID: string) => {
   return paywallUrl.toString();
 };
 
-const parseSeriesSlug = (comicHref: string, curlRaw: string) =>
-  comicHref.replace(/^\/+|\/+$/g, "") || curlRaw.replace(/^\/+|\/+$/g, "");
+const normalizeSlug = (value: string) => value.replace(/^\/+|\/+$/g, "");
+const isChapterSlug = (value: string) => /^m\d+$/i.test(value);
+
+const parseSeriesSlug = (comicHref: string, curlRaw: string) => {
+  const hrefSlug = normalizeSlug(comicHref);
+  if (hrefSlug && !isChapterSlug(hrefSlug)) {
+    return hrefSlug;
+  }
+
+  const curlSlug = normalizeSlug(curlRaw);
+  return isChapterSlug(curlSlug) ? "" : curlSlug;
+};
 
 function buildChapterPageMeta(
   chapterID: string,

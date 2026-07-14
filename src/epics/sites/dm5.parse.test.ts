@@ -102,7 +102,11 @@ describe("dm5 parser helpers", () => {
     const html = `
       <html>
         <body>
-          <div class="title"><span></span><span><a href="/manhua-shishenyongzheyuanshaji/">Demo</a></span></div>
+          <div class="title">
+            <a href="/">首页</a>
+            <span class="right-arrow"><a href="/manhua-shishenyongzheyuanshaji/">失神勇者与暗杀姬</a></span>
+            <span class="active right-arrow">第143话</span>
+          </div>
           <input id="dm5_key" value="" />
           <script>
             var DM5_CURL = "/m1794602/";
@@ -128,6 +132,24 @@ describe("dm5 parser helpers", () => {
       resolveDm5ImageUrl(EMPTY_CHAPTERFUN_KEY_PACKER_SAMPLE, firstImage),
     ).toBe(
       "https://manhua1041zjcdn79.cdndm5.com/90/89730/1794602/1_7884.jpg?cid=1794602&key=9513d9f1ca59042e184ba6c2334ea1e0",
+    );
+  });
+
+  test("rejects a chapter route as the series slug", () => {
+    const html = `
+      <div class="title"><a href="/">首页</a></div>
+      <script>
+        var DM5_CURL = "/m1794602/";
+        var DM5_MID = 89730;
+        var DM5_CID = 1794602;
+        var DM5_IMAGE_COUNT = 20;
+        var DM5_VIEWSIGN = "signed";
+        var DM5_VIEWSIGN_DT = "2026-07-15 00:13:27";
+      </script>
+    `;
+
+    expect(() => parseDm5ChapterPage(html, "m1794602")).toThrow(
+      "Unable to parse DM5 chapter metadata for m1794602.",
     );
   });
 
