@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect
+    x="54"
+    y="38"
+    width="320"
+    height="434"
+    rx="42"
+    fill="#ECE6D6"
+    stroke="#261F17"
+    stroke-width="28"
+  />
+  <path d="M118 56v398" stroke="#261F17" stroke-width="28"/>
+  <rect x="154" y="94" width="176" height="202" rx="14" fill="#261F17"/>
+  <path
+    fill="#261F17"
+    stroke="#FFFDF7"
+    stroke-width="56"
+    stroke-linejoin="round"
+    paint-order="stroke fill"
+    d="M334 224h50v100h42l-67 74-67-74h42V224Z"
+  />
+</svg>
