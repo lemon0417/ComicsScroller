@@ -31,5 +31,4 @@ export type SiteAdapter = {
   key: string;
   baseURL: string;
   fetchMeta: SiteMetaFetcher;
-  fetchChapters?: SiteChapterFetcher;
 };

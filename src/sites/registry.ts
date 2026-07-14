@@ -31,7 +31,6 @@ export function getSiteChapterFetcher(
 ): SiteChapterFetcher | undefined {
   const adapter = getSiteAdapter(site);
   if (!adapter) return undefined;
-  if (adapter.fetchChapters) return adapter.fetchChapters;
 
   return (url) =>
     adapter.fetchMeta(url, { includeCover: false }).pipe(
