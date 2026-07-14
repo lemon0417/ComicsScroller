@@ -40,16 +40,18 @@ reader 流程若需要補抓 cover，會採兩段式 hydration：
 - 先發出只有 `title + chapterList + chapters` 的最小 metadata，讓 header / 章節列表 / 訂閱狀態先完成初始化
 - cover 抓到後再補一筆帶 `cover` 的 metadata
 
-背景更新固定使用 chapter snapshot：RSS 成功時只送出一個 RSS request，不抓封面或等待 cover hydration。RSS 失敗、沒有可用章節，或作品 URL 不是 `manhua-*` 時仍 fallback 至既有作品 HTML parser，但只把 `chapterList + chapters` 交給背景 repository。
+背景更新固定使用 chapter snapshot：RSS 成功時只送出一個 RSS request，不抓封面或等待 cover hydration。以下情況仍使用既有作品 HTML parser，但背景只接收 `chapterList + chapters`：
+- RSS request 失敗
+- RSS 沒有任何可用章節連結
+- 作品 URL 不是 `manhua-*`，無法推導 RSS URL（相容已儲存的 legacy URL）
 
-若 RSS request 失敗，或 RSS 雖成功但沒有任何可用章節連結，會 fallback 回舊 HTML parser 流程，避免 RSS 成為單點故障。
-
-若作品頁 URL 不是 `manhua-*` 形狀，則 fallback 回舊 HTML parser 流程，避免非標準 URL 直接失效。
+RSS 與作品 HTML 會在前景 metadata 流程併發取得。RSS 需要 fallback 時會重用該次作品 HTML request；若該 request 也失敗，不會立刻對同一 URL 發出第三次無退避請求。封面解析或請求失敗時，RSS 的最小 metadata 仍可使用。
 
 ## 3) 章節頁抓取
 來源：
 - `src/epics/sites/dm5.ts`：負責 ajax 與 action orchestration
-- `src/sites/dm5/chapter.ts`：負責章節頁 HTML parser、packer 解包、圖片 URL resolver
+- `src/sites/dm5/chapter.ts`：負責章節頁 HTML parser
+- `src/sites/dm5/imageResolver.ts`：負責 packer 解包與圖片 URL resolver
 
 DM5 reader 流程裡，章節身分和作品身分必須分開看：
 - `chapterID`：`m1753397` 這種章節頁 ID，來自 `app.html?site=dm5&chapter=m1753397`
@@ -69,7 +71,7 @@ parser 對外回傳 `chapterID + seriesSlug + imgList`，epic 只在寫入通用
 - 不自動預載上一章，避免付費卡片後面繼續串出其他章節
 - 原站連結會加上 `?cs_open_native=1`，background 收到這個 marker 時不再重導回 `app.html`
 
-若 DOM parser 與字串 fallback parser 都無法產出有效的 `chapterID + seriesSlug + imgList`，parser 會直接拋錯並中止後續流程；不允許帶著空的 `seriesSlug` 或壞的 `comicUrl` 繼續寫入 state / repository。
+章節 HTML 統一使用不依賴 DOM 的字串 parser，讓 reader 與 MV3 runtime 共用同一套行為。若無法產出有效的 `chapterID + seriesSlug + imgList`，parser 會直接拋錯並中止後續流程；不允許帶著空的 `seriesSlug` 或壞的 `comicUrl` 繼續寫入 state / repository。
 
 ## 4) chapterfun.ashx（中介）
 ```
@@ -93,20 +95,20 @@ reader 只會對目前可視範圍與 overscan 範圍內、且尚未解析完成
 下一章 prefetch 抓到 payload 後，不會立刻插進 reader list；只有當前章節首張可閱讀圖片 ready 後，queued 章節才會 append，避免 placeholder 高度讓更後面的章節提早進入可視範圍。
 
 ## 5) 解包與解析
-來源：`src/sites/dm5/chapter.ts`
+來源：`src/sites/dm5/imageResolver.ts`
 
 解出：
 - `pix`：CDN base URL
 - `pvalue` / `d` / `hd_c`：圖片路徑
 - 可能包含 `cid` / `key`
 
-取第一張圖片路徑作為該頁 URL 來源。
+resolver 只接受 `pvalue`、`d`、`hd_c` 這三種已知命名陣列，取第一張圖片路徑作為該頁 URL 來源。未知陣列或 response 中偶然出現的 URL 不會被當成圖片；解析失敗會交給既有 reader retry／錯誤狀態。
 
 ## 6) 最終圖片 URL
 ```
 <pix>/<image-path>?cid=<cid>&key=<key>
 ```
-若 script 未提供 `cid/key`，則回退到章節頁解析的值。
+`cid/key` 優先採用 chapterfun response；response 未提供時，才回退到章節頁的 `DM5_CID` 與 `DM5_KEY`／`#dm5_key`。`DM5_KEY` 仍是程式保留的最終 fallback，不會取代 response 已提供的圖片 key。
 
 ## 7) Header 規則
 CDN 需要 Referer 與成人 Cookie，由 `public/rules.json` 注入：
