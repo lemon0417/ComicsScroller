@@ -1,8 +1,13 @@
 import { subscribeToLibrarySignal } from "./signal";
+import {
+  emitLibrarySignal,
+  withBatchedLibrarySignals,
+} from "./shared";
 
 describe("library signal", () => {
   let addListener: jest.Mock;
   let removeListener: jest.Mock;
+  let setLocal: jest.Mock;
   let handler: ((changes: any, areaName: string) => void) | null;
 
   beforeEach(() => {
@@ -12,8 +17,12 @@ describe("library signal", () => {
       handler = listener;
     });
     removeListener = jest.fn();
+    setLocal = jest.fn((_items, callback) => callback?.());
     (global as any).chrome = {
       storage: {
+        local: {
+          set: setLocal,
+        },
         onChanged: {
           addListener,
           removeListener,
@@ -55,5 +64,40 @@ describe("library signal", () => {
 
     unsubscribe();
     expect(removeListener).toHaveBeenCalledTimes(1);
+  });
+
+  it("merges concurrent invalidations into one library signal", async () => {
+    await withBatchedLibrarySignals(async () => {
+      await Promise.all([
+        emitLibrarySignal("backgroundRefresh", ["series"], ["dm5:m1"]),
+        emitLibrarySignal("backgroundRefresh", ["updates"], ["dm5:m2"]),
+      ]);
+    });
+
+    expect(setLocal).toHaveBeenCalledTimes(1);
+    expect(setLocal.mock.calls[0][0].librarySignal).toMatchObject({
+      source: "backgroundRefresh",
+      scopes: ["series", "updates"],
+      seriesKeys: ["dm5:m1", "dm5:m2"],
+    });
+  });
+
+  it("flushes successful invalidations when a batched operation fails", async () => {
+    await expect(
+      withBatchedLibrarySignals(async () => {
+        await emitLibrarySignal(
+          "backgroundRefresh",
+          ["series", "updates"],
+          ["dm5:m1"],
+        );
+        throw new Error("later refresh failed");
+      }),
+    ).rejects.toThrow("later refresh failed");
+
+    expect(setLocal).toHaveBeenCalledTimes(1);
+    expect(setLocal.mock.calls[0][0].librarySignal).toMatchObject({
+      scopes: ["series", "updates"],
+      seriesKeys: ["dm5:m1"],
+    });
   });
 });

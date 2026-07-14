@@ -208,6 +208,7 @@ describe("background service", () => {
 
   it("summarizes background updates and refreshes badge", async () => {
     const setBadge = jest.fn();
+    const withBatchedLibrarySignals = jest.fn(async (run) => run());
     const markSubscriptionCheckedByKey = jest.fn().mockResolvedValue(undefined);
     const applyBackgroundSeriesRefresh = jest.fn().mockResolvedValue({
       updatesCount: 2,
@@ -247,6 +248,7 @@ describe("background service", () => {
       resetLibrary: jest.fn(),
       setBadge,
       setLibraryVersion: jest.fn(),
+      withBatchedLibrarySignals,
     }, {
       batchSize: 12,
       concurrency: 2,
@@ -274,6 +276,7 @@ describe("background service", () => {
       ["m2"],
     );
     expect(setBadge).toHaveBeenCalledWith(2);
+    expect(withBatchedLibrarySignals).toHaveBeenCalledTimes(1);
     expect(fetchChapters).toHaveBeenCalledWith("https://www.dm5.com/m123/");
     expect(markSubscriptionCheckedByKey).toHaveBeenCalledWith(
       "dm5:m123",

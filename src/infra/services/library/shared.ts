@@ -487,7 +487,17 @@ async function cleanupLegacyStorage() {
   await removeStorageItems(LEGACY_STORAGE_KEYS);
 }
 
-export async function emitLibrarySignal(
+type LibrarySignalBatch = {
+  participants: number;
+  sources: Set<string>;
+  scopes: Set<LibrarySignal["scopes"][number]>;
+  seriesKeys: Set<string>;
+  includesAllSeries: boolean;
+};
+
+let activeLibrarySignalBatch: LibrarySignalBatch | null = null;
+
+async function writeLibrarySignal(
   source = "library",
   scopes: LibrarySignal["scopes"] = ["series", "subscriptions", "history", "updates"],
   seriesKeys?: string[],
@@ -501,6 +511,68 @@ export async function emitLibrarySignal(
     ...(seriesKeys?.length ? { seriesKeys: uniqueStrings(seriesKeys) } : {}),
   };
   await setStorageItems({ [LIBRARY_SIGNAL_KEY]: signal });
+}
+
+export async function emitLibrarySignal(
+  source = "library",
+  scopes: LibrarySignal["scopes"] = ["series", "subscriptions", "history", "updates"],
+  seriesKeys?: string[],
+) {
+  const batch = activeLibrarySignalBatch;
+  if (!batch) {
+    await writeLibrarySignal(source, scopes, seriesKeys);
+    return;
+  }
+
+  batch.sources.add(source);
+  scopes.forEach((scope) => batch.scopes.add(scope));
+  if (seriesKeys?.length) {
+    seriesKeys.forEach((seriesKey) => batch.seriesKeys.add(seriesKey));
+  } else {
+    batch.includesAllSeries = true;
+  }
+}
+
+export async function withBatchedLibrarySignals<T>(
+  run: () => Promise<T>,
+): Promise<T> {
+  const batch = activeLibrarySignalBatch || {
+    participants: 0,
+    sources: new Set<string>(),
+    scopes: new Set<LibrarySignal["scopes"][number]>(),
+    seriesKeys: new Set<string>(),
+    includesAllSeries: false,
+  };
+  activeLibrarySignalBatch = batch;
+  batch.participants += 1;
+  let runFailed = false;
+
+  try {
+    return await run();
+  } catch (error) {
+    runFailed = true;
+    throw error;
+  } finally {
+    batch.participants -= 1;
+    if (batch.participants === 0 && activeLibrarySignalBatch === batch) {
+      activeLibrarySignalBatch = null;
+      if (batch.scopes.size > 0) {
+        const source =
+          batch.sources.size === 1
+            ? Array.from(batch.sources)[0]
+            : "libraryBatch";
+        try {
+          await writeLibrarySignal(
+            source,
+            Array.from(batch.scopes),
+            batch.includesAllSeries ? undefined : Array.from(batch.seriesKeys),
+          );
+        } catch (signalError) {
+          if (!runFailed) throw signalError;
+        }
+      }
+    }
+  }
 }
 
 export async function persistSnapshot(

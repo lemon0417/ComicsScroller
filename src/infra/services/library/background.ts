@@ -7,6 +7,9 @@ export {
   markSubscriptionCheckedByKey,
 } from "./mutations";
 export {
+  withBatchedLibrarySignals,
+} from "./shared";
+export {
   listBackgroundRefreshCandidates,
   getSeriesSnapshot,
   getUpdateCount,

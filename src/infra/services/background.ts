@@ -11,6 +11,7 @@ import {
   markSubscriptionCheckedByKey,
   resetLibrary,
   setLibraryVersion,
+  withBatchedLibrarySignals,
 } from "@infra/services/library/background";
 import { getSiteChapterFetcher } from "@sites/registry";
 import type {
@@ -58,6 +59,7 @@ type BackgroundServiceDeps = {
   resetLibrary: typeof resetLibrary;
   setBadge: (count: number) => void;
   setLibraryVersion: typeof setLibraryVersion;
+  withBatchedLibrarySignals?: typeof withBatchedLibrarySignals;
 };
 
 type BackgroundSummary = {
@@ -137,6 +139,7 @@ function getDefaultDeps(): BackgroundServiceDeps {
     resetLibrary,
     setBadge: setExtensionBadge,
     setLibraryVersion,
+    withBatchedLibrarySignals,
   };
 }
 
@@ -291,10 +294,13 @@ async function executeBackgroundUpdateSummary(
     deps.listBackgroundRefreshCandidates(normalizedOptions.batchSize),
     deps.getUpdateCount(),
   ]);
-  const results = await runWithConcurrency(
-    candidates,
-    normalizedOptions.concurrency,
-    (candidate) => checkSubscribedSeries(candidate, deps, normalizedOptions),
+  const batchSignals = deps.withBatchedLibrarySignals || ((run) => run());
+  const results = await batchSignals(() =>
+    runWithConcurrency(
+      candidates,
+      normalizedOptions.concurrency,
+      (candidate) => checkSubscribedSeries(candidate, deps, normalizedOptions),
+    ),
   );
 
   const checked = results.reduce((sum, result) => sum + result.checked, 0);
