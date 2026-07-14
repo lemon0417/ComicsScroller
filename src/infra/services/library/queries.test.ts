@@ -91,7 +91,7 @@ describe("library queries", () => {
 
     const stores = {
       [SERIES_STORE]: {
-        get: jest.fn((seriesKey: keyof typeof seriesRows) => seriesRows[seriesKey]),
+        getAll: jest.fn(() => Object.values(seriesRows)),
       },
       [CHAPTERS_STORE]: {
         get: jest.fn((key: [string, string]) =>
@@ -237,8 +237,7 @@ describe("library queries", () => {
         continueHref: "https://www.dm5.com/m123/1.html",
       },
     });
-    expect(stores[SERIES_STORE].get).toHaveBeenCalledTimes(1);
-    expect(stores[SERIES_STORE].get).toHaveBeenCalledWith("dm5:m123");
+    expect(stores[SERIES_STORE].getAll).toHaveBeenCalledTimes(1);
     expect(stores[CHAPTERS_STORE].get).toHaveBeenCalledWith(["dm5:m123", "m2"]);
     expect(transaction.objectStore).toHaveBeenCalledWith(SERIES_STORE);
     expect(transaction.objectStore).toHaveBeenCalledWith(CHAPTERS_STORE);
@@ -246,7 +245,7 @@ describe("library queries", () => {
 
   it("does not read series or chapter stores when the popup feed has no referenced series", async () => {
     const seriesStore = {
-      get: jest.fn(),
+      getAll: jest.fn(),
     };
     const chaptersStore = {
       index: jest.fn(),
@@ -286,8 +285,75 @@ describe("library queries", () => {
       continueReading: null,
     });
 
-    expect(seriesStore.get).not.toHaveBeenCalled();
+    expect(seriesStore.getAll).not.toHaveBeenCalled();
     expect(chaptersStore.index).not.toHaveBeenCalled();
+  });
+
+  it("shares normalized in-flight popup feed queries and clears them after success", async () => {
+    let resolveSubscriptions: (rows: []) => void = () => undefined;
+    const subscriptionsPromise = new Promise<[]>((resolve) => {
+      resolveSubscriptions = resolve;
+    });
+    const stores = {
+      [SERIES_STORE]: { getAll: jest.fn() },
+      [CHAPTERS_STORE]: { get: jest.fn() },
+      [SUBSCRIPTIONS_STORE]: { getAll: jest.fn() },
+      [HISTORY_STORE]: { getAll: jest.fn() },
+      [UPDATES_STORE]: { getAll: jest.fn() },
+    };
+    const transaction = {
+      objectStore: jest.fn(
+        (storeName: keyof typeof stores) => stores[storeName],
+      ),
+    };
+    const db = { transaction: jest.fn(() => transaction) };
+    dbModule.openLibraryDb.mockResolvedValue(db);
+    rows.loadRowsByPositionInTransaction
+      .mockImplementationOnce(() => subscriptionsPromise)
+      .mockResolvedValue([]);
+    rows.loadUpdatesInTransaction.mockResolvedValue([]);
+
+    const first = getPopupFeedSnapshot({ updateLimit: 2.9 });
+    const overlapping = getPopupFeedSnapshot({ updateLimit: 2 });
+
+    expect(overlapping).toBe(first);
+    resolveSubscriptions([]);
+    await expect(Promise.all([first, overlapping])).resolves.toHaveLength(2);
+    expect(dbModule.openLibraryDb).toHaveBeenCalledTimes(1);
+
+    await getPopupFeedSnapshot({ updateLimit: 2 });
+    expect(dbModule.openLibraryDb).toHaveBeenCalledTimes(2);
+  });
+
+  it("allows a popup feed query retry after an in-flight rejection", async () => {
+    const stores = {
+      [SERIES_STORE]: { getAll: jest.fn() },
+      [CHAPTERS_STORE]: { get: jest.fn() },
+      [SUBSCRIPTIONS_STORE]: { getAll: jest.fn() },
+      [HISTORY_STORE]: { getAll: jest.fn() },
+      [UPDATES_STORE]: { getAll: jest.fn() },
+    };
+    const transaction = {
+      objectStore: jest.fn(
+        (storeName: keyof typeof stores) => stores[storeName],
+      ),
+    };
+    const db = { transaction: jest.fn(() => transaction) };
+    dbModule.openLibraryDb.mockResolvedValue(db);
+    rows.loadRowsByPositionInTransaction
+      .mockRejectedValueOnce(new Error("temporary query failure"))
+      .mockResolvedValue([]);
+    rows.loadUpdatesInTransaction.mockResolvedValue([]);
+
+    await expect(getPopupFeedSnapshot()).rejects.toThrow(
+      "temporary query failure",
+    );
+    await expect(getPopupFeedSnapshot()).resolves.toMatchObject({
+      update: [],
+      subscribe: [],
+      history: [],
+    });
+    expect(dbModule.openLibraryDb).toHaveBeenCalledTimes(2);
   });
 
   it("limits popup updates for the popup view and flags truncated results", async () => {
@@ -309,7 +375,7 @@ describe("library queries", () => {
     };
     const stores = {
       [SERIES_STORE]: {
-        get: jest.fn(() => seriesRows["dm5:m123"]),
+        getAll: jest.fn(() => Object.values(seriesRows)),
       },
       [CHAPTERS_STORE]: {
         get: jest.fn((key: [string, string]) => ({

@@ -217,22 +217,12 @@ async function loadReferencedSeriesRows(
     return {};
   }
 
-  const seriesEntries = await Promise.all(
-    referencedKeys.map(async (seriesKey) => {
-      const row = await requestToPromise<SeriesRow | undefined>(seriesStore.get(seriesKey));
-      if (!row) {
-        return null;
-      }
-      return [seriesKey, row] as const;
-    }),
-  );
-
-  return seriesEntries.reduce<Record<string, SeriesRow>>((acc, entry) => {
-    if (!entry) {
-      return acc;
+  const referencedKeySet = new Set(referencedKeys);
+  const rows = await requestToPromise<SeriesRow[]>(seriesStore.getAll());
+  return rows.reduce<Record<string, SeriesRow>>((acc, row) => {
+    if (referencedKeySet.has(row.seriesKey)) {
+      acc[row.seriesKey] = row;
     }
-    const [seriesKey, row] = entry;
-    acc[seriesKey] = row;
     return acc;
   }, {});
 }
@@ -404,11 +394,9 @@ export async function listBackgroundRefreshCandidates(
   });
 }
 
-export async function getPopupFeedSnapshot(
-  options: {
-    updateLimit?: number;
-  } = {},
-) {
+const popupFeedSnapshotInFlight = new Map<string, Promise<PopupFeedSnapshot>>();
+
+async function loadPopupFeedSnapshot(updateLimit: number) {
   await ensureLibraryReady();
   const db = await openLibraryDb();
   const transaction = db.transaction(
@@ -421,9 +409,6 @@ export async function getPopupFeedSnapshot(
   const subscriptionsStore = transaction.objectStore(SUBSCRIPTIONS_STORE);
   const historyStore = transaction.objectStore(HISTORY_STORE);
   const updatesStore = transaction.objectStore(UPDATES_STORE);
-  const updateLimit = Number.isFinite(options.updateLimit)
-    ? Math.max(0, Number(options.updateLimit))
-    : Number.POSITIVE_INFINITY;
   const updatesReadLimit = Number.isFinite(updateLimit)
     ? updateLimit + 1
     : Number.POSITIVE_INFINITY;
@@ -470,4 +455,25 @@ export async function getPopupFeedSnapshot(
     updateCount,
     updatesTruncated,
   });
+}
+
+export function getPopupFeedSnapshot(
+  options: {
+    updateLimit?: number;
+  } = {},
+) {
+  const updateLimit = Number.isFinite(options.updateLimit)
+    ? Math.max(0, Math.floor(Number(options.updateLimit)))
+    : Number.POSITIVE_INFINITY;
+  const cacheKey = Number.isFinite(updateLimit) ? String(updateLimit) : "all";
+  const existing = popupFeedSnapshotInFlight.get(cacheKey);
+  if (existing) return existing;
+
+  const trackedPromise = loadPopupFeedSnapshot(updateLimit).finally(() => {
+    if (popupFeedSnapshotInFlight.get(cacheKey) === trackedPromise) {
+      popupFeedSnapshotInFlight.delete(cacheKey);
+    }
+  });
+  popupFeedSnapshotInFlight.set(cacheKey, trackedPromise);
+  return trackedPromise;
 }
