@@ -1,4 +1,5 @@
 import { fetchMeta$ } from "@sites/sf/meta";
+import { getSiteChapterFetcher } from "@sites/registry";
 import { firstValueFrom } from "rxjs";
 
 describe("sf fetchMeta$", () => {
@@ -59,6 +60,37 @@ describe("sf fetchMeta$", () => {
     await expect(
       firstValueFrom(fetchMeta$("http://comic.sfacg.com/HTML/123/")),
     ).rejects.toThrow("SF metadata request failed: 503");
+  });
+
+  it("projects HTML metadata to a chapter-only snapshot", async () => {
+    const html = `
+      <html>
+        <head><title>SF Demo</title></head>
+        <body>
+          <div class="comic_cover"><img src="http://comic.sfacg.com/cover.jpg" /></div>
+          <a href="/HTML/123/001/">Chapter 1</a>
+        </body>
+      </html>
+    `;
+    (globalThis as any).fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: () => Promise.resolve(html),
+    });
+    (globalThis as any).DOMParser = undefined;
+
+    const fetchChapters = getSiteChapterFetcher("sf");
+    await expect(
+      firstValueFrom(fetchChapters!("http://comic.sfacg.com/HTML/123/")),
+    ).resolves.toEqual({
+      chapterList: ["HTML/123/001/"],
+      chapters: {
+        "HTML/123/001/": {
+          title: "Chapter 1",
+          href: "http://comic.sfacg.com/HTML/123/001/",
+        },
+      },
+    });
   });
 
   it("aborts the metadata request when unsubscribed", async () => {

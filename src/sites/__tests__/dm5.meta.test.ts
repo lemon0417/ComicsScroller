@@ -1,4 +1,5 @@
 import { fetchMeta$ } from "@sites/dm5/meta";
+import { getSiteChapterFetcher } from "@sites/registry";
 import { firstValueFrom, lastValueFrom } from "rxjs";
 import { toArray } from "rxjs/operators";
 
@@ -203,7 +204,7 @@ describe("dm5 fetchMeta$", () => {
     }
   });
 
-  it("skips cover HTML fetch when includeCover is false", async () => {
+  it("uses RSS only for background chapter snapshots", async () => {
     const rssXml = `<?xml version="1.0" encoding="utf-8" standalone="yes"?>
       <rss version="2.0">
         <channel>
@@ -223,18 +224,24 @@ describe("dm5 fetchMeta$", () => {
     (globalThis as any).fetch = fetchMock;
 
     try {
+      const fetchChapters = getSiteChapterFetcher("dm5");
       const result = await firstValueFrom(
-        fetchMeta$("https://www.dm5.com/manhua-rss-only/", {
-          includeCover: false,
-        }),
+        fetchChapters!("https://www.dm5.com/manhua-rss-only/"),
       );
       expect(fetchMock).toHaveBeenCalledTimes(1);
       expect(fetchMock).toHaveBeenCalledWith(
         "https://www.dm5.com/rss-rss-only/",
         expect.objectContaining({ signal: expect.anything() }),
       );
-      expect(result.cover).toBe("");
-      expect(result.chapterList).toEqual(["m100"]);
+      expect(result).toEqual({
+        chapterList: ["m100"],
+        chapters: {
+          m100: {
+            title: "第1话",
+            href: "https://www.dm5.com/m100/",
+          },
+        },
+      });
     } finally {
       (globalThis as any).fetch = originalFetch;
     }

@@ -13,13 +13,23 @@ export type SiteMeta = {
   chapters: Record<string, ChapterRecord>;
 };
 
+export type SiteChapterSnapshot = Pick<
+  SiteMeta,
+  "chapterList" | "chapters"
+>;
+
 export type SiteMetaFetcher = (
   url: string,
   options?: FetchMetaOptions,
 ) => Observable<SiteMeta>;
 
+export type SiteChapterFetcher = (
+  url: string,
+) => Observable<SiteChapterSnapshot>;
+
 export type SiteAdapter = {
   key: string;
   baseURL: string;
   fetchMeta: SiteMetaFetcher;
+  fetchChapters?: SiteChapterFetcher;
 };
