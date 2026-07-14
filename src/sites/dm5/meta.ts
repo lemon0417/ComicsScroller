@@ -31,11 +31,9 @@ function buildLegacyFallback$(
   fetchText: FetchText,
   preferredHtmlPromise?: Promise<string> | null,
 ) {
-  const html$ = preferredHtmlPromise
-    ? from(preferredHtmlPromise).pipe(
-        catchError(() => from(fetchText(url, "comic html fallback"))),
-      )
-    : from(fetchText(url, "comic html fallback"));
+  const html$ = from(
+    preferredHtmlPromise || fetchText(url, "comic html fallback"),
+  );
 
   return html$.pipe(
     rxMap((html): SiteMeta => {

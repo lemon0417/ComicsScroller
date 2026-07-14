@@ -48,7 +48,9 @@ describe("dm5 fetchMeta$", () => {
 
     try {
       const result = await firstValueFrom(
-        fetchMeta$("https://www.dm5.com/manhua-kepadepengyoujiejieshiweihaoren/"),
+        fetchMeta$(
+          "https://www.dm5.com/manhua-kepadepengyoujiejieshiweihaoren/",
+        ),
       );
       expect(fetchMock).toHaveBeenNthCalledWith(
         1,
@@ -340,6 +342,44 @@ describe("dm5 fetchMeta$", () => {
           },
         },
       });
+    } finally {
+      (globalThis as any).fetch = originalFetch;
+    }
+  });
+
+  it("does not repeat a failed comic HTML request during RSS fallback", async () => {
+    const originalFetch = globalThis.fetch;
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        text: () => Promise.resolve(""),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 502,
+        text: () => Promise.resolve(""),
+      });
+    (globalThis as any).fetch = fetchMock;
+
+    try {
+      await expect(
+        firstValueFrom(
+          fetchMeta$("https://www.dm5.com/manhua-failed-fallback/"),
+        ),
+      ).rejects.toThrow("DM5 comic html request failed: 502");
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenNthCalledWith(
+        1,
+        "https://www.dm5.com/rss-failed-fallback/",
+        expect.objectContaining({ signal: expect.anything() }),
+      );
+      expect(fetchMock).toHaveBeenNthCalledWith(
+        2,
+        "https://www.dm5.com/manhua-failed-fallback/",
+        expect.objectContaining({ signal: expect.anything() }),
+      );
     } finally {
       (globalThis as any).fetch = originalFetch;
     }
