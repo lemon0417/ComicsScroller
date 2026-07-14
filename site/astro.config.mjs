@@ -8,6 +8,12 @@ export default defineConfig({
     starlight({
       title: "Comic Scroller",
       description: "Official docs and install guide for the Comic Scroller browser extension.",
+      logo: {
+        src: "./src/assets/comics.svg",
+        alt: "",
+        replacesTitle: false,
+      },
+      favicon: "/favicon.svg",
       customCss: ["/src/styles/custom.css"],
       social: [
         {
