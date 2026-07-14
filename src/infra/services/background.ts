@@ -1,4 +1,5 @@
 import {
+  EXTENSION_RELEASE_CHECK_INTERVAL_MINUTES,
   reconcileStoredExtensionReleaseState,
   refreshStoredExtensionReleaseState,
 } from "@infra/services/extensionRelease";
@@ -25,6 +26,16 @@ const BACKGROUND_UPDATE_BATCH_SIZE = 20;
 const BACKGROUND_UPDATE_CONCURRENCY = 4;
 const BACKGROUND_FETCH_TIMEOUT_MS = 15000;
 const RELEASE_AVAILABLE_NOTIFICATION_TITLE = "Comics Scroller 有新版本";
+export const LIBRARY_REFRESH_ALARM_NAME = "comcisScroller";
+export const EXTENSION_RELEASE_ALARM_NAME = "comicScrollerReleaseCheck";
+
+type BackgroundAlarmDeps = {
+  createAlarm: (
+    name: string,
+    alarmInfo: { when: number; periodInMinutes: number },
+  ) => Promise<void> | void;
+  getAlarm: (name: string) => Promise<chrome.alarms.Alarm | undefined>;
+};
 
 type BackgroundServiceDeps = {
   applyBackgroundSeriesRefresh: typeof applyBackgroundSeriesRefresh;
@@ -72,6 +83,40 @@ type BackgroundReleaseSummary = {
   latestVersion: string;
   notified: boolean;
 };
+
+function getDefaultAlarmDeps(): BackgroundAlarmDeps {
+  return {
+    createAlarm: (name, alarmInfo) => chrome.alarms.create(name, alarmInfo),
+    getAlarm: (name) => chrome.alarms.get(name),
+  };
+}
+
+export async function ensureBackgroundAlarms(
+  deps: BackgroundAlarmDeps = getDefaultAlarmDeps(),
+  now: () => number = () => Date.now(),
+) {
+  const alarmConfigs = [
+    {
+      name: LIBRARY_REFRESH_ALARM_NAME,
+      periodInMinutes: 10,
+    },
+    {
+      name: EXTENSION_RELEASE_ALARM_NAME,
+      periodInMinutes: EXTENSION_RELEASE_CHECK_INTERVAL_MINUTES,
+    },
+  ];
+
+  await Promise.all(
+    alarmConfigs.map(async ({ name, periodInMinutes }) => {
+      const existingAlarm = await deps.getAlarm(name);
+      if (existingAlarm) return;
+      await deps.createAlarm(name, {
+        when: now(),
+        periodInMinutes,
+      });
+    }),
+  );
+}
 
 function getDefaultDeps(): BackgroundServiceDeps {
   return {

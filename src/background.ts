@@ -1,28 +1,17 @@
 import {
+  ensureBackgroundAlarms,
+  EXTENSION_RELEASE_ALARM_NAME,
   handleExtensionInstalled,
   handleNotificationClick,
   handlePingBackgroundMessage,
+  LIBRARY_REFRESH_ALARM_NAME,
   resolveReaderRedirect,
   runBackgroundReleaseCheck,
   runBackgroundUpdateSummary,
 } from "@infra/services/background";
-import { EXTENSION_RELEASE_CHECK_INTERVAL_MINUTES } from "@infra/services/extensionRelease";
 import { devLog } from "@utils/devLog";
 
 const isDev = import.meta.env.MODE !== "production";
-const LIBRARY_REFRESH_ALARM_NAME = "comcisScroller";
-const EXTENSION_RELEASE_ALARM_NAME = "comicScrollerReleaseCheck";
-
-function ensureBackgroundAlarms() {
-  chrome.alarms.create(LIBRARY_REFRESH_ALARM_NAME, {
-    when: Date.now(),
-    periodInMinutes: 10,
-  });
-  chrome.alarms.create(EXTENSION_RELEASE_ALARM_NAME, {
-    when: Date.now(),
-    periodInMinutes: EXTENSION_RELEASE_CHECK_INTERVAL_MINUTES,
-  });
-}
 
 function runBackgroundTask(scope: string, task: () => Promise<unknown>) {
   void task().catch((error: unknown) => {
@@ -37,15 +26,9 @@ chrome.notifications.onClicked.addListener((id: string) => {
 });
 
 chrome.runtime.onInstalled.addListener((details: { reason?: string }) => {
-  void handleExtensionInstalled(details)
-    .catch((error: unknown) => {
-      devLog("background:install-failed", error);
-    })
-    .finally(ensureBackgroundAlarms);
-});
-
-chrome.runtime.onStartup.addListener(() => {
-  ensureBackgroundAlarms();
+  void handleExtensionInstalled(details).catch((error: unknown) => {
+    devLog("background:install-failed", error);
+  });
 });
 
 chrome.runtime.onMessage.addListener(
@@ -77,7 +60,9 @@ chrome.webNavigation.onBeforeNavigate.addListener(
   },
 );
 
-ensureBackgroundAlarms();
+runBackgroundTask("background:ensure-alarms-failed", () =>
+  ensureBackgroundAlarms(),
+);
 
 chrome.alarms.onAlarm.addListener((alarm: { name?: string }) => {
   if (alarm.name === LIBRARY_REFRESH_ALARM_NAME) {

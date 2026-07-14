@@ -1,9 +1,12 @@
 import { NEVER, of } from "rxjs";
 
 import {
+  ensureBackgroundAlarms,
+  EXTENSION_RELEASE_ALARM_NAME,
   handleExtensionInstalled,
   handleNotificationClick,
   handlePingBackgroundMessage,
+  LIBRARY_REFRESH_ALARM_NAME,
   resolveReaderRedirect,
   runBackgroundReleaseCheck,
   runBackgroundUpdateSummary,
@@ -12,6 +15,37 @@ import {
 const UPDATE_NOTIFICATION_ID = "Comics Scroller Update";
 
 describe("background service", () => {
+  it("preserves existing background alarm schedules", async () => {
+    const createAlarm = jest.fn();
+    const getAlarm = jest.fn(async (name: string) => ({
+      name,
+      scheduledTime: 999,
+    }) as chrome.alarms.Alarm);
+
+    await ensureBackgroundAlarms({ createAlarm, getAlarm }, () => 123);
+
+    expect(getAlarm).toHaveBeenCalledWith(LIBRARY_REFRESH_ALARM_NAME);
+    expect(getAlarm).toHaveBeenCalledWith(EXTENSION_RELEASE_ALARM_NAME);
+    expect(createAlarm).not.toHaveBeenCalled();
+  });
+
+  it("creates only missing background alarms", async () => {
+    const createAlarm = jest.fn();
+    const getAlarm = jest.fn(async (name: string) =>
+      name === EXTENSION_RELEASE_ALARM_NAME
+        ? ({ name, scheduledTime: 999 } as chrome.alarms.Alarm)
+        : undefined,
+    );
+
+    await ensureBackgroundAlarms({ createAlarm, getAlarm }, () => 123);
+
+    expect(createAlarm).toHaveBeenCalledTimes(1);
+    expect(createAlarm).toHaveBeenCalledWith(LIBRARY_REFRESH_ALARM_NAME, {
+      when: 123,
+      periodInMinutes: 10,
+    });
+  });
+
   it("summarizes background updates and refreshes badge", async () => {
     const setBadge = jest.fn();
     const markSubscriptionCheckedByKey = jest.fn().mockResolvedValue(undefined);
