@@ -538,7 +538,7 @@ describe("library integration", () => {
     );
   });
 
-  it("keeps existing cover when refresh payload omits a replacement cover", async () => {
+  it("keeps series metadata unchanged during a background chapter refresh", async () => {
     await compat.importLibraryDump({
       format: "comic-scroller-db-dump",
       formatVersion: 1,
@@ -550,9 +550,9 @@ describe("library integration", () => {
             seriesKey: "dm5:m123",
             site: "dm5",
             comicsID: "m123",
-            title: "Demo",
+            title: "Persisted title",
             cover: "persisted-cover.jpg",
-            url: "https://www.dm5.com/m123/",
+            url: "https://www.dm5.com/manhua-persisted/",
             lastRead: "m1",
             read: ["m1"],
             updatedAt: 1,
@@ -577,7 +577,6 @@ describe("library integration", () => {
       "dm5",
       "m123",
       {
-        title: "Demo",
         chapterList: ["m2", "m1"],
         chapters: {
           m1: {
@@ -589,15 +588,19 @@ describe("library integration", () => {
             href: "https://www.dm5.com/m123/2.html",
           },
         },
-        cover: "",
-        url: "https://www.dm5.com/m123/",
       },
       ["m2"],
     );
 
     const readerState = await queries.getReaderSeriesState("dm5:m123");
-    expect(readerState.series?.cover).toBe("persisted-cover.jpg");
-    expect(readerState.series?.chapterList).toEqual(["m2", "m1"]);
+    expect(readerState.series).toMatchObject({
+      title: "Persisted title",
+      cover: "persisted-cover.jpg",
+      url: "https://www.dm5.com/manhua-persisted/",
+      lastRead: "m1",
+      read: ["m1"],
+      chapterList: ["m2", "m1"],
+    });
   });
 
   it("imports plain JSON bytes from the manage file picker flow", async () => {

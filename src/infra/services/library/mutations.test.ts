@@ -503,9 +503,6 @@ describe("library mutations", () => {
       "dm5",
       "m123",
       {
-        title: "Demo",
-        cover: "",
-        url: "https://www.dm5.com/m123/",
         chapterList: ["m3", "m2", "m1"],
         chapters: {
           m1: {
@@ -528,6 +525,16 @@ describe("library mutations", () => {
     expect(rows.loadReadChapterIDsInTransaction).toHaveBeenCalledWith(
       readsStore,
       "dm5:m123",
+    );
+    expect(seriesStore.put).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Demo",
+        cover: "cover.jpg",
+        url: "https://www.dm5.com/m123/",
+        lastRead: "m1",
+        latestChapterID: "m3",
+        latestChapterTitle: "Ch 3",
+      }),
     );
     expect(chaptersStore.index).not.toHaveBeenCalled();
     expect(rows.replaceSeriesChaptersInTransaction).toHaveBeenCalled();
@@ -625,9 +632,6 @@ describe("library mutations", () => {
       "dm5",
       "m123",
       {
-        title: "Demo",
-        cover: "",
-        url: "https://www.dm5.com/m123/",
         chapterList: ["m2", "m1"],
         chapters: {
           m1: {

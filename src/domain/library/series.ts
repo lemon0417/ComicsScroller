@@ -21,6 +21,11 @@ export type SeriesRecord = {
   read: string[];
 };
 
+export type SeriesChapterSnapshot = Pick<
+  SeriesRecord,
+  "chapterList" | "chapters"
+>;
+
 export type LibraryUpdateRecord = {
   seriesKey: SeriesKey;
   chapterID: string;

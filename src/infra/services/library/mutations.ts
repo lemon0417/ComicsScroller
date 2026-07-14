@@ -2,6 +2,7 @@ import type {
   BackgroundSeriesRefreshResult,
   ReaderSeriesMutationResult,
   ReadProgressMutationResult,
+  SeriesChapterSnapshot,
 } from "@domain/library";
 
 import {
@@ -193,27 +194,21 @@ function mergeSeriesRecord(
   return nextRecord;
 }
 
-type BackgroundRefreshRecordInput = Pick<
-  SeriesRecord,
-  "url" | "chapterList" | "chapters"
-> &
-  Partial<Pick<SeriesRecord, "title" | "cover">>;
-
 function mergeBackgroundRefreshRecord(
   site: SiteKey,
   comicsID: string,
   previousRow: SeriesRow | undefined,
   readChapterIDs: string[],
-  record: BackgroundRefreshRecordInput,
+  snapshot: SeriesChapterSnapshot,
 ) {
   return normalizeSeriesRecord(site, comicsID, {
     site,
     comicsID,
-    title: record.title || previousRow?.title || "",
-    cover: record.cover || previousRow?.cover || "",
-    url: record.url || previousRow?.url || "",
-    chapterList: record.chapterList,
-    chapters: record.chapters,
+    title: previousRow?.title || "",
+    cover: previousRow?.cover || "",
+    url: previousRow?.url || "",
+    chapterList: snapshot.chapterList,
+    chapters: snapshot.chapters,
     lastRead: previousRow?.lastRead || "",
     read: readChapterIDs,
   });
@@ -820,7 +815,7 @@ export async function applyReadProgress(
 export async function applyBackgroundSeriesRefresh(
   site: SiteKey,
   comicsID: string,
-  record: BackgroundRefreshRecordInput,
+  snapshot: SeriesChapterSnapshot,
   newChapterIDs: string[],
 ): Promise<BackgroundSeriesRefreshResult> {
   await ensureLibraryReady();
@@ -845,7 +840,7 @@ export async function applyBackgroundSeriesRefresh(
     comicsID,
     previousRow,
     readChapterIDs,
-    record,
+    snapshot,
   );
 
   await requestToPromise(

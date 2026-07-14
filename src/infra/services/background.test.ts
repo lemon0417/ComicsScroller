@@ -270,7 +270,6 @@ describe("background service", () => {
       {
         chapterList: ["m2", "m1"],
         chapters: expect.any(Object),
-        url: "https://www.dm5.com/m123/",
       },
       ["m2"],
     );
@@ -337,7 +336,7 @@ describe("background service", () => {
     );
   });
 
-  it("ignores chapters discovered behind the latest checkpoint", async () => {
+  it("refreshes backfilled chapters without reporting them as updates", async () => {
     const applyBackgroundSeriesRefresh = jest.fn();
     const summary = await runBackgroundUpdateSummary({
       applyBackgroundSeriesRefresh,
@@ -377,7 +376,14 @@ describe("background service", () => {
     });
 
     expect(summary.updated).toBe(0);
-    expect(applyBackgroundSeriesRefresh).not.toHaveBeenCalled();
+    expect(applyBackgroundSeriesRefresh).toHaveBeenCalledWith(
+      "dm5",
+      "m123",
+      expect.objectContaining({
+        chapterList: ["m3", "m2-backfill", "m2", "m1"],
+      }),
+      [],
+    );
   });
 
   it("times out a stalled subscription fetch and keeps processing the batch", async () => {
@@ -449,9 +455,7 @@ describe("background service", () => {
     expect(applyBackgroundSeriesRefresh).toHaveBeenCalledWith(
       "dm5",
       "m-ok",
-      expect.objectContaining({
-        url: "https://www.dm5.com/m-ok/",
-      }),
+      expect.objectContaining({ chapterList: ["m2", "m1"] }),
       ["m2"],
     );
     expect(markSubscriptionCheckedByKey).toHaveBeenCalledWith(

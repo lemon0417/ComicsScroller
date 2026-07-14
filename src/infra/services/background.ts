@@ -232,24 +232,20 @@ async function checkSubscribedSeries(
     const checkpointIndex = latestChapterID
       ? chapterList.indexOf(latestChapterID)
       : -1;
-    const shouldEstablishBaseline = checkpointIndex < 0;
     const nextChapterIDs =
       checkpointIndex > 0
         ? chapterList.slice(0, checkpointIndex)
         : [];
 
-    if (nextChapterIDs.length > 0 || shouldEstablishBaseline) {
-      await deps.applyBackgroundSeriesRefresh(
-        site,
-        comicsID,
-        {
-          chapterList,
-          chapters,
-          url,
-        },
-        nextChapterIDs,
-      );
-    }
+    await deps.applyBackgroundSeriesRefresh(
+      site,
+      comicsID,
+      {
+        chapterList,
+        chapters,
+      },
+      nextChapterIDs,
+    );
 
     return {
       checked: 1,
