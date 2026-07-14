@@ -62,7 +62,7 @@ parser 對外回傳 `chapterID + seriesSlug + imgList`，epic 只在寫入通用
 - `DM5_CID` / `DM5_CURL`
 - `DM5_MID`
 - `DM5_VIEWSIGN_DT` / `DM5_VIEWSIGN`
-- `DM5_KEY`（可為空）
+- `DM5_KEY`（可為空；只保留作最終圖片 URL 的 fallback）
 
 若章節頁沒有 `DM5_IMAGE_COUNT`，但存在 `#view-chapterpay-btn` / `.view-pay-btn`，會視為付費章節：
 - 產生一張 `type: "paywall"` placeholder
@@ -76,7 +76,7 @@ parser 對外回傳 `chapterID + seriesSlug + imgList`，epic 只在寫入通用
 https://www.dm5.com/<DM5_CURL>/chapterfun.ashx
   ?cid=<DM5_CID>
   &page=<page>
-  &key=<DM5_KEY>
+  &key=
   &language=1
   &gtk=6
   &_cid=<DM5_CID>
@@ -85,6 +85,8 @@ https://www.dm5.com/<DM5_CURL>/chapterfun.ashx
   &_sign=<DM5_VIEWSIGN>
 ```
 回應為 obfuscated script（packer 格式）。
+
+`chapterfun.ashx` 的 `key` query 目前固定保留空值，不帶入章節頁的 `DM5_KEY`。實際圖片 key 通常由 packer response 提供；只有 response 沒有 key 時，才回退使用章節頁解析值。
 
 reader 只會對目前可視範圍與 overscan 範圍內、且尚未解析完成的頁面請求 `chapterfun.ashx`。同一張圖在 request 尚未完成前，會做 in-flight dedupe，避免快速捲動時重複打同一頁。
 章節頁 request 與 `chapterfun.ashx` request 都有 timeout 保護。若章節頁 request timeout，reader 會維持空白頁面並顯示全頁 `重試`；若 `chapterfun.ashx` request timeout、解包失敗，或後續圖片載入失敗，reader 會先自動重試 2 次；仍失敗時，該頁改顯示單張 `重試` 按鈕，不需要整頁重新整理。
