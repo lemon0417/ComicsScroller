@@ -1,8 +1,9 @@
 import { devLog } from "@utils/devLog";
-import { concat, EMPTY, from, of } from "rxjs";
+import { concat, defer, EMPTY, from, of } from "rxjs";
 import {
   catchError,
   defaultIfEmpty,
+  finalize,
   map as rxMap,
   mergeMap,
 } from "rxjs/operators";
@@ -15,8 +16,10 @@ import {
   resolveDm5RssUrl,
 } from "./metaParser";
 
-async function fetchText(url: string, source: string) {
-  const response = await fetch(url);
+type FetchText = (url: string, source: string) => Promise<string>;
+
+async function fetchText(url: string, source: string, signal: AbortSignal) {
+  const response = await fetch(url, { signal });
   if (!response.ok) {
     throw new Error(`DM5 ${source} request failed: ${response.status}`);
   }
@@ -25,6 +28,7 @@ async function fetchText(url: string, source: string) {
 
 function buildLegacyFallback$(
   url: string,
+  fetchText: FetchText,
   preferredHtmlPromise?: Promise<string> | null,
 ) {
   const html$ = preferredHtmlPromise
@@ -47,9 +51,11 @@ function buildLegacyFallback$(
   );
 }
 
-export function fetchMeta$(
+function buildFetchMeta$(
   url: string,
-  { includeCover = true, deferCover = false }: FetchMetaOptions = {},
+  includeCover: boolean,
+  deferCover: boolean,
+  fetchText: FetchText,
 ) {
   const rssUrl = resolveDm5RssUrl(url);
   devLog("dm5:fetchMeta:start", {
@@ -77,6 +83,9 @@ export function fetchMeta$(
 
   const rssTextPromise = fetchText(rssUrl, "rss");
   const coverHtmlPromise = includeCover ? fetchText(url, "comic html") : null;
+  if (coverHtmlPromise) {
+    void coverHtmlPromise.catch(() => undefined);
+  }
 
   return from(rssTextPromise).pipe(
     rxMap(parseDm5RssMetaStrict),
@@ -139,7 +148,37 @@ export function fetchMeta$(
         includeCover,
         reason: error instanceof Error ? error.message : String(error),
       });
-      return buildLegacyFallback$(url, coverHtmlPromise);
+      return buildLegacyFallback$(url, fetchText, coverHtmlPromise);
     }),
   );
+}
+
+export function fetchMeta$(
+  url: string,
+  { includeCover = true, deferCover = false }: FetchMetaOptions = {},
+) {
+  return defer(() => {
+    const controllers = new Set<AbortController>();
+    const fetchTextForSession: FetchText = (requestUrl, source) => {
+      const controller = new AbortController();
+      controllers.add(controller);
+      return fetchText(requestUrl, source, controller.signal).finally(() => {
+        controllers.delete(controller);
+      });
+    };
+
+    return buildFetchMeta$(
+      url,
+      includeCover,
+      deferCover,
+      fetchTextForSession,
+    ).pipe(
+      finalize(() => {
+        controllers.forEach((controller) => {
+          controller.abort();
+        });
+        controllers.clear();
+      }),
+    );
+  });
 }

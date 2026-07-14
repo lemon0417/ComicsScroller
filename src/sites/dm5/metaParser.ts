@@ -4,6 +4,8 @@ import { XMLParser } from "fast-xml-parser";
 import type { SiteMeta } from "../types";
 
 const baseURL = "https://www.dm5.com";
+const dm5ChapterHosts = new Set(["www.dm5.com", "tel.dm5.com"]);
+const dm5ChapterPathRegex = /^\/(m\d+)\/?$/i;
 const rssXmlParser = new XMLParser({
   ignoreAttributes: true,
   trimValues: true,
@@ -14,14 +16,6 @@ const stripTags = (input: string) =>
     .replace(/<[^>]*>/g, "")
     .replace(/\s+/g, " ")
     .trim();
-
-function resolveDm5Url(pathOrUrl: string) {
-  try {
-    return new URL(pathOrUrl, baseURL).toString();
-  } catch {
-    return pathOrUrl;
-  }
-}
 
 export function resolveDm5RssUrl(comicUrl: string) {
   try {
@@ -42,12 +36,22 @@ const pickBlock = (source: string, marker: string) => {
   return source.slice(idx, idx + 20000);
 };
 
-function parseChapterIDFromUrl(rawUrl: string) {
+function parseDm5ChapterLink(rawUrl: string) {
+  if (!rawUrl.trim()) {
+    return null;
+  }
   try {
-    const parsedUrl = new URL(rawUrl);
-    return parsedUrl.pathname.replace(/^\/+|\/+$/g, "");
+    const parsedUrl = new URL(rawUrl, baseURL);
+    const chapterMatch = dm5ChapterPathRegex.exec(parsedUrl.pathname);
+    if (!dm5ChapterHosts.has(parsedUrl.hostname.toLowerCase()) || !chapterMatch) {
+      return null;
+    }
+    return {
+      chapterID: chapterMatch[1].toLowerCase(),
+      href: parsedUrl.toString(),
+    };
   } catch {
-    return rawUrl.replace(/^https?:\/\/www\.dm5\.com\//, "").replace(/\//g, "");
+    return null;
   }
 }
 
@@ -99,19 +103,23 @@ const parseLegacyFromDocument = (doc: Document) => {
     .trim()
     .split(/\s+/)[0];
   const cover = parseCoverFromDocument(doc);
-  const chapterList = Array.from(chapterNodes)
-    .map((n) => {
-      const href = n.getAttribute("href") || "";
-      return href ? href.replace(/\//g, "") : null;
-    })
-    .filter(Boolean) as string[];
-  const chapters = Array.from(chapterNodes).reduce<Record<string, ChapterRecord>>(
-    (acc, n) => {
-      const href = n.getAttribute("href") || "";
-      if (!href) return acc;
-      acc[href.replace(/\//g, "")] = {
-        title: n.textContent?.trim().replaceAll(/\s+/g, " ") || "",
-        href: resolveDm5Url(n.getAttribute("href") || n.href || ""),
+  const chapterEntries = Array.from(chapterNodes).flatMap((node) => {
+    const chapterLink = parseDm5ChapterLink(node.getAttribute("href") || "");
+    return chapterLink
+      ? [
+          {
+            ...chapterLink,
+            title: node.textContent?.trim().replaceAll(/\s+/g, " ") || "",
+          },
+        ]
+      : [];
+  });
+  const chapterList = chapterEntries.map(({ chapterID }) => chapterID);
+  const chapters = chapterEntries.reduce<Record<string, ChapterRecord>>(
+    (acc, { chapterID, href, title: chapterTitle }) => {
+      acc[chapterID] = {
+        title: chapterTitle,
+        href,
       };
       return acc;
     },
@@ -134,13 +142,13 @@ const parseLegacyFromHtml = (html: string) => {
   const chapters: Record<string, ChapterRecord> = {};
   let match: RegExpExecArray | null;
   while ((match = anchorRegex.exec(block))) {
-    const href = match[1].replace(/\//g, "");
+    const chapterLink = parseDm5ChapterLink(match[1]);
     const chapterTitle = stripTags(match[2]);
-    if (!href) continue;
-    chapterList.push(href);
-    chapters[href] = {
+    if (!chapterLink) continue;
+    chapterList.push(chapterLink.chapterID);
+    chapters[chapterLink.chapterID] = {
       title: chapterTitle,
-      href: `${baseURL}/${href}/`,
+      href: chapterLink.href,
     };
   }
   return { title, cover, chapterList, chapters };
@@ -154,13 +162,12 @@ const parseRssMeta = (xml: string) => {
   const chapters: Record<string, ChapterRecord> = {};
 
   for (const item of toRssItems(channel.item)) {
-    const chapterHref = toText(item.link);
-    const chapterID = parseChapterIDFromUrl(chapterHref);
-    if (!chapterID || !chapterHref) continue;
-    chapterList.push(chapterID);
-    chapters[chapterID] = {
+    const chapterLink = parseDm5ChapterLink(toText(item.link));
+    if (!chapterLink) continue;
+    chapterList.push(chapterLink.chapterID);
+    chapters[chapterLink.chapterID] = {
       title: stripTags(toText(item.title)).replaceAll(/\s+/g, " "),
-      href: chapterHref,
+      href: chapterLink.href,
     };
   }
 

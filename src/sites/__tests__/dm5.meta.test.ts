@@ -52,10 +52,12 @@ describe("dm5 fetchMeta$", () => {
       expect(fetchMock).toHaveBeenNthCalledWith(
         1,
         "https://www.dm5.com/rss-kepadepengyoujiejieshiweihaoren/",
+        expect.objectContaining({ signal: expect.anything() }),
       );
       expect(fetchMock).toHaveBeenNthCalledWith(
         2,
         "https://www.dm5.com/manhua-kepadepengyoujiejieshiweihaoren/",
+        expect.objectContaining({ signal: expect.anything() }),
       );
       expect(result).toEqual({
         title: "可怕的朋友姐姐是位好人",
@@ -229,6 +231,7 @@ describe("dm5 fetchMeta$", () => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
       expect(fetchMock).toHaveBeenCalledWith(
         "https://www.dm5.com/rss-rss-only/",
+        expect.objectContaining({ signal: expect.anything() }),
       );
       expect(result.cover).toBe("");
       expect(result.chapterList).toEqual(["m100"]);
@@ -421,6 +424,34 @@ describe("dm5 fetchMeta$", () => {
       expect(result.chapters.m1.href).toBe("https://www.dm5.com/m1/");
     } finally {
       (globalThis as any).DOMParser = originalParser;
+      (globalThis as any).fetch = originalFetch;
+    }
+  });
+
+  it("aborts in-flight RSS and cover requests when unsubscribed", () => {
+    const originalFetch = globalThis.fetch;
+    const signals: AbortSignal[] = [];
+    const fetchMock = jest.fn((_url: string, init?: RequestInit) => {
+      if (init?.signal) {
+        signals.push(init.signal);
+      }
+      return new Promise(() => undefined);
+    });
+    (globalThis as any).fetch = fetchMock;
+
+    try {
+      const subscription = fetchMeta$(
+        "https://www.dm5.com/manhua-cancelled/",
+      ).subscribe();
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(signals).toHaveLength(2);
+      expect(signals.every((signal) => !signal.aborted)).toBe(true);
+
+      subscription.unsubscribe();
+
+      expect(signals.every((signal) => signal.aborted)).toBe(true);
+    } finally {
       (globalThis as any).fetch = originalFetch;
     }
   });
