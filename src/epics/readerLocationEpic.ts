@@ -1,3 +1,4 @@
+import { UPDATE_READ } from "@domain/actions/reader";
 import { UPDATE_CHAPTER_NOW_INDEX } from "@domain/reducers/comics";
 import { ofType } from "redux-observable";
 import { EMPTY } from "rxjs";
@@ -7,7 +8,7 @@ import type { AppEpic } from "./types";
 
 const readerLocationEpic: AppEpic = (action$, state$) =>
   action$.pipe(
-    ofType(UPDATE_CHAPTER_NOW_INDEX),
+    ofType(UPDATE_CHAPTER_NOW_INDEX, UPDATE_READ),
     mergeMap(() => {
       const comics = state$?.value?.comics;
       const chapter = comics?.chapterList?.[comics?.chapterNowIndex];
